@@ -63,7 +63,11 @@ export function extractToolCalls(jsonl: string, source: ToolCall['source']): Too
 
     if (obj.type === 'assistant') {
       for (const block of blocks) {
-        if (block.type === 'tool_use' && typeof block.id === 'string' && typeof block.name === 'string') {
+        if (
+          block.type === 'tool_use' &&
+          typeof block.id === 'string' &&
+          typeof block.name === 'string'
+        ) {
           calls.set(block.id, {
             name: block.name,
             argsSummary: summarizeArgs(block.input),

@@ -16,6 +16,7 @@ export default [
         console: 'readonly',
         process: 'readonly',
         Buffer: 'readonly',
+        NodeJS: 'readonly',
       },
       parser: tsParser,
       parserOptions: {
