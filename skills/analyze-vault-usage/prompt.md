@@ -15,7 +15,7 @@ You are reviewing one week of Claude Code usage in a vault, based on a determini
 A single Markdown body using exactly this structure:
 
 ```markdown
-# Usage analytics <YYYY-Www>
+# Usage analytics <label>
 
 ## TL;DR
 
@@ -45,7 +45,35 @@ Walk `samples` and identify sessions where the agent retried the same tool or fi
 
 ## Suggestions
 
-Group into three subsections — emit only those that have content. Each entry: `[CONFIDENCE | N sessions] **Title** — one-line action.`
+Group into three subsections — emit only those that have content. Each entry uses one of these formats:
+
+```
+[CONFIDENCE | N sessions | ~XXX KB/run] **Title** — one-line action.
+[REQUIRES_VERIFICATION | N sessions] **Title** — one-line action; verification needed because <one phrase>.
+[BLOCKED: insufficient data — observed N sessions over P days] **Title** — what evidence is missing.
+```
+
+Where:
+
+- `CONFIDENCE` is `HIGH`, `MED`, or `LOW`.
+- `N sessions` is the count of sample sessions exhibiting the pattern.
+- `~XXX KB/run` is your byte-cost estimate, derived from `aggregates.largestResultTools` (avg result size) × the relevant frequency (from `topTools` or `topSequences`). Show the arithmetic in one parenthetical: `(~12 KB × 4 calls/session ≈ 48 KB/run)`.
+
+### Required guards
+
+1. **Cost-grounded confidence.** A `[HIGH]` entry MUST include a `~XXX KB/run` figure. If you cannot produce one from the report, the recommendation is at most `[MED]`. If you also cannot justify `[MED]`, downgrade to `[LOW]` or drop it.
+
+2. **Premature-drop guard.** Before emitting any of: "drop X", "remove X", "deprecate X", "X is unused", verify BOTH:
+   - `(period.endMs - period.startMs) / 86400000 >= 14`, AND
+   - at least 3 distinct working sessions in `samples` lacked X.
+
+   Otherwise the entry MUST use the `[BLOCKED: insufficient data — observed N sessions over P days]` format. Do NOT emit `[LOW]` for these — the issue is missing evidence, not weak evidence.
+
+3. **Replace-X self-check.** Before emitting any "replace X with Y" or "use Y instead of X" recommendation, walk this checklist:
+   - Is Y demonstrably cheaper on this workload, given `aggregates.largestResultTools`?
+   - What asymmetries apply? (Examples: `Edit` ships a diff while `Write` ships the full file; a narrow tool has less prelude per call but may need more calls.)
+
+   If the cost mechanic is not obvious from the report or you have not verified it, tag the recommendation `[REQUIRES_VERIFICATION]` instead of a confidence tier.
 
 ### MCP features
 
@@ -71,4 +99,5 @@ Top tools, top 2- and 3-grams, stale-path hits, cache-hit distribution, subagent
 - Cite evidence by session id, e.g. "(sessions: conv-A, conv-D)". Do not fabricate sessions.
 - If a section has no genuine content, omit the section. Do not pad. "Nothing critical" is a valid week.
 - Keep entries short. Each suggestion is one sentence.
-- Confidence levels: `HIGH` ≥ 5 supporting sessions, `MED` 2-4, `LOW` 1.
+- Confidence levels: `HIGH` ≥ 5 supporting sessions AND a KB/run figure; `MED` 2–4 sessions; `LOW` 1 session.
+- One sample's `toolCallSummary` may have `mcpCalls = []` — that is a valid vault-relevant session anchored by `currentNote` or wikilinks. Do not assume samples are MCP-heavy; lean on `nonMcpSummary` for those.
