@@ -28,6 +28,32 @@ Or directly from the shell:
 nv-analytics --period 7d --vault ~/Obsidian --format json
 ```
 
+### Running the CLI locally (without installing the plugin)
+
+To inspect raw CLI output against a real vault — useful for debugging the analyzer or eyeballing aggregates before the LLM critique step:
+
+```sh
+git clone https://github.com/AlexMost/neuro-vault-analytics.git
+cd neuro-vault-analytics
+npm install
+npm run build
+
+# JSON (full report, machine-readable) — pipe through jq for readability
+node dist/cli.js --vault ~/Obsidian --period 7d --format json | jq .
+
+# Text (human-friendly summary)
+node dist/cli.js --vault ~/Obsidian --period 7d --format text
+```
+
+You can also run from inside the vault directory and drop `--vault` (the CLI walks up looking for `.obsidian/`):
+
+```sh
+cd ~/Obsidian
+node /path/to/neuro-vault-analytics/dist/cli.js --period 14d --format text
+```
+
+Available flags: `--period <Nd|Nw>` (e.g. `7d`, `2w`), `--vault <path>`, `--sample-size <N>` (default 15), `--format json|text`. If `stats.sessionsVault` is 0, either the period is empty or no session was vault-relevant — check `warnings[]` in the JSON output.
+
 Sample output (truncated):
 
 ```json
