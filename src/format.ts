@@ -1,7 +1,7 @@
 import type { AnalyticsReport } from './types.js';
 
 export function formatJson(report: AnalyticsReport): string {
-  return JSON.stringify(report, null, 2);
+  return JSON.stringify(report) + '\n';
 }
 
 export function formatText(report: AnalyticsReport): string {

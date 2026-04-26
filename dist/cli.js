@@ -35,7 +35,7 @@ function encodeVaultPath(absVaultPath) {
 
 // src/format.ts
 function formatJson(report) {
-  return JSON.stringify(report, null, 2);
+  return JSON.stringify(report) + "\n";
 }
 function formatText(report) {
   const lines = [];
