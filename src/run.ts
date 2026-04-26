@@ -22,7 +22,7 @@ export async function run(args: RunArgs): Promise<AnalyticsReport> {
   });
 
   const vaultDiscovered = discovered.filter(isVaultRelevant);
-  const summaries = vaultDiscovered.map(toSessionSummary);
+  const summaries = vaultDiscovered.map((d) => toSessionSummary(d));
 
   const totalToolCalls = summaries.reduce((sum, s) => sum + s.toolCalls.length, 0);
   const aggregates = aggregate(summaries);
