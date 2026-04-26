@@ -20,7 +20,7 @@ describe('run', () => {
       vaultDir: fixture.vaultDir,
       projectsDir: fixture.projectsDir,
       period: { startMs: 1_745_000_000_000, endMs: 1_746_000_000_000, label: 'fixture' },
-      sampleSize: 10,
+      byteBudget: 10_000_000,
     });
 
     // Six metas exist (A-F); F is missing-SDK and only meta. The full count is 6.

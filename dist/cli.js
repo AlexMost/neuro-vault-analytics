@@ -252,8 +252,8 @@ async function discoverSessions(args) {
 }
 
 // src/parse-jsonl.ts
-var ARGS_CAP = 120;
-function summarizeArgs(input) {
+var ARGS_CAP = 200;
+function summarizeArgs(input, vaultDir) {
   let s;
   try {
     s = typeof input === "string" ? input : JSON.stringify(input);
@@ -261,6 +261,9 @@ function summarizeArgs(input) {
     s = String(input);
   }
   s = s.replace(/\s+/g, " ").trim();
+  if (vaultDir && vaultDir.length > 0) {
+    s = s.split(`${vaultDir}/`).join("vault:");
+  }
   return s.length > ARGS_CAP ? s.slice(0, ARGS_CAP - 1) + "\u2026" : s;
 }
 function sizeOf(content) {
@@ -271,7 +274,7 @@ function sizeOf(content) {
     return 0;
   }
 }
-function extractToolCalls(jsonl, source) {
+function extractToolCalls(jsonl, source, vaultDir) {
   const calls = /* @__PURE__ */ new Map();
   const results = /* @__PURE__ */ new Map();
   for (const raw of jsonl.split(/\r?\n/)) {
@@ -291,7 +294,7 @@ function extractToolCalls(jsonl, source) {
         if (block.type === "tool_use" && typeof block.id === "string" && typeof block.name === "string") {
           calls.set(block.id, {
             name: block.name,
-            argsSummary: summarizeArgs(block.input),
+            argsSummary: summarizeArgs(block.input, vaultDir),
             ts: Number.isFinite(ts) ? ts : 0,
             source
           });
@@ -341,10 +344,10 @@ function lastMainStatus(main2) {
   if (main2.length === 0) return "completed";
   return main2[main2.length - 1].status === "error" ? "dead_end" : "completed";
 }
-function toSessionSummary(d) {
-  const main2 = extractToolCalls(d.mainLog, "main");
+function toSessionSummary(d, opts = {}) {
+  const main2 = extractToolCalls(d.mainLog, "main", opts.vaultDir);
   const perAgent = d.subagentLogs.map(
-    (s) => extractToolCalls(s.jsonl, `subagent:${s.agentId}`)
+    (s) => extractToolCalls(s.jsonl, `subagent:${s.agentId}`, opts.vaultDir)
   );
   const all = [...main2, ...perAgent.flat()].sort((a, b) => a.ts - b.ts);
   return {
@@ -393,6 +396,62 @@ function isVaultRelevant(d) {
 }
 
 // src/sample.ts
+var MCP_PREFIX = "mcp__neuro-vault-mcp__";
+var ANOMALY_RESULT_BYTES = 5 * 1024;
+function isAnomaly(c) {
+  if (c.status === "error") return true;
+  if (c.resultSize !== null && c.resultSize > ANOMALY_RESULT_BYTES) return true;
+  return false;
+}
+function topToolsOf(calls, limit) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const c of calls) counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+  return [...counts.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)).slice(0, limit);
+}
+function topNGramsOf(calls, limit) {
+  const names = calls.map((c) => c.name);
+  const counts = /* @__PURE__ */ new Map();
+  for (const n of [2, 3]) {
+    for (let i = 0; i + n <= names.length; i++) {
+      const seq = names.slice(i, i + n);
+      const key = seq.join(">");
+      const bucket = counts.get(key) ?? { sequence: seq, count: 0 };
+      bucket.count++;
+      counts.set(key, bucket);
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count || a.sequence.join(">").localeCompare(b.sequence.join(">"))).slice(0, limit).map(({ sequence, count }) => ({ sequence, count, sessionIds: [] }));
+}
+function projectSession(s) {
+  const mcpCalls = s.toolCalls.filter((c) => c.name.startsWith(MCP_PREFIX));
+  const anomalies = s.toolCalls.filter(isAnomaly);
+  const nonMcpClean = s.toolCalls.filter(
+    (c) => !c.name.startsWith(MCP_PREFIX) && !isAnomaly(c)
+  );
+  return {
+    id: s.id,
+    title: s.title,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
+    durationMs: s.durationMs,
+    model: s.model,
+    contextPercentage: s.contextPercentage,
+    cacheHitRatio: s.cacheHitRatio,
+    currentNote: s.currentNote,
+    outcome: s.outcome,
+    subagent: s.subagent,
+    toolCallSummary: {
+      total: s.toolCalls.length,
+      mcpCalls,
+      anomalies,
+      nonMcpSummary: {
+        total: nonMcpClean.length,
+        topTools: topToolsOf(nonMcpClean, 5),
+        nGrams: topNGramsOf(nonMcpClean, 3)
+      }
+    }
+  };
+}
 function hourBucket(ts) {
   const h = new Date(ts).getUTCHours();
   return Math.floor(h / 6);
@@ -404,12 +463,16 @@ function callBucket(calls, quartiles) {
   return 3;
 }
 function quartilesOf(values) {
+  if (values.length === 0) return [0, 0, 0];
   const sorted = [...values].sort((a, b) => a - b);
   const at = (p) => sorted[Math.floor(p / 100 * (sorted.length - 1))];
   return [at(25), at(50), at(75)];
 }
-function sampleSessions(sessions, sampleSize) {
-  if (sessions.length <= sampleSize) return [...sessions];
+function costOf(p) {
+  return Buffer.byteLength(JSON.stringify(p), "utf8");
+}
+function sampleSessionsWithMeta(sessions, opts) {
+  if (sessions.length === 0) return { samples: [], budgetUnderflow: false };
   const quartiles = quartilesOf(sessions.map((s) => s.toolCalls.length));
   const strata = /* @__PURE__ */ new Map();
   for (const s of sessions) {
@@ -420,17 +483,31 @@ function sampleSessions(sessions, sampleSize) {
   }
   const queues = [...strata.values()];
   const out = [];
-  while (out.length < sampleSize) {
+  let used = 0;
+  let budgetUnderflow = false;
+  while (true) {
     let advanced = false;
     for (const q of queues) {
       if (q.length === 0) continue;
-      out.push(q.shift());
+      const projected = projectSession(q.shift());
+      const cost = costOf(projected);
+      if (out.length === 0) {
+        out.push(projected);
+        used += cost;
+        if (cost > opts.byteBudget) budgetUnderflow = true;
+        advanced = true;
+        continue;
+      }
+      if (used + cost > opts.byteBudget) {
+        continue;
+      }
+      out.push(projected);
+      used += cost;
       advanced = true;
-      if (out.length >= sampleSize) break;
     }
     if (!advanced) break;
   }
-  return out;
+  return { samples: out, budgetUnderflow };
 }
 
 // src/run.ts
@@ -441,10 +518,16 @@ async function run(args) {
     period: args.period
   });
   const vaultDiscovered = discovered.filter(isVaultRelevant);
-  const summaries = vaultDiscovered.map(toSessionSummary);
+  const summaries = vaultDiscovered.map((d) => toSessionSummary(d, { vaultDir: args.vaultDir }));
   const totalToolCalls = summaries.reduce((sum, s) => sum + s.toolCalls.length, 0);
   const aggregates = aggregate(summaries);
-  const samples = sampleSessions(summaries, args.sampleSize);
+  const sampleResult = sampleSessionsWithMeta(summaries, { byteBudget: args.byteBudget });
+  const allWarnings = [...warnings];
+  if (sampleResult.budgetUnderflow) {
+    allWarnings.push(
+      `sample byte budget too small; emitted N=1 anyway (cost > ${args.byteBudget})`
+    );
+  }
   return {
     period: args.period,
     stats: {
@@ -454,41 +537,83 @@ async function run(args) {
       avgToolCallsPerSession: summaries.length === 0 ? 0 : totalToolCalls / summaries.length
     },
     aggregates,
-    samples,
-    warnings
+    samples: sampleResult.samples,
+    warnings: allWarnings
   };
+}
+async function runDetail(args) {
+  const period = { startMs: 0, endMs: Number.MAX_SAFE_INTEGER, label: "all" };
+  const { discovered } = await discoverSessions({
+    vaultDir: args.vaultDir,
+    projectsDir: args.projectsDir,
+    period
+  });
+  const found = discovered.find((d) => d.meta.id === args.sessionId);
+  if (!found) {
+    throw new Error(`session ${args.sessionId} not found`);
+  }
+  return toSessionSummary(found, { vaultDir: args.vaultDir });
 }
 
 // src/cli.ts
+var DEFAULT_BYTE_BUDGET = 5e4;
+function parseByteSize(input) {
+  const s = input.trim().toUpperCase();
+  const m = /^(\d+(?:\.\d+)?)(KB|MB|B)?$/.exec(s);
+  if (!m) {
+    throw new Error(`Unsupported size: '${input}'. Expected e.g. '50000', '50KB', '1MB'.`);
+  }
+  const n = Number(m[1]);
+  const unit = m[2] ?? "B";
+  const mult = unit === "MB" ? 1e6 : unit === "KB" ? 1e3 : 1;
+  return Math.round(n * mult);
+}
 async function main() {
-  const argv = await yargs(hideBin(process.argv)).scriptName("nv-analytics").usage("$0 --period <span> [options]").option("period", {
+  const argv = await yargs(hideBin(process.argv)).scriptName("nv-analytics").usage("$0 --period <span> [options]   |   $0 --detail <sessionId> [options]").option("period", {
     type: "string",
-    demandOption: true,
-    describe: "Window to analyze (e.g. 7d, 2w)"
-  }).option("vault", {
+    describe: "Window to analyze (e.g. 7d, 2w). Mutually exclusive with --detail."
+  }).option("detail", {
+    type: "string",
+    describe: "Session id to dump in full (no period filter). Mutually exclusive with --period."
+  }).conflicts("period", "detail").option("vault", {
     type: "string",
     describe: "Path to the Obsidian vault. Auto-detected from cwd if omitted."
-  }).option("sample-size", {
-    type: "number",
-    default: 15,
-    describe: "Number of representative sessions to include in samples[]"
+  }).option("sample-bytes", {
+    type: "string",
+    default: String(DEFAULT_BYTE_BUDGET),
+    describe: 'Target byte size for the samples[] array (e.g. 50000 or "50KB").'
   }).option("format", {
     type: "string",
     choices: ["json", "text"],
     default: "json",
-    describe: "Output format"
+    describe: "Output format (period mode only; detail mode is always JSON)."
   }).option("projects-dir", {
     type: "string",
     default: path3.join(os.homedir(), ".claude", "projects"),
     describe: "Root of the SDK projects store (override for testing)."
+  }).check((args) => {
+    if (!args.period && !args.detail) {
+      throw new Error("Provide either --period or --detail.");
+    }
+    return true;
   }).strict().help().parseAsync();
-  const period = parsePeriod(argv.period, Date.now());
   const vaultDir = resolveVault({ explicit: argv.vault, cwd: process.cwd() });
+  if (argv.detail) {
+    const detail = await runDetail({
+      vaultDir,
+      projectsDir: argv["projects-dir"],
+      sessionId: argv.detail
+    });
+    process.stdout.write(JSON.stringify(detail, null, 2) + "\n");
+    return 0;
+  }
+  const period = parsePeriod(argv.period, Date.now());
+  const byteBudget = parseByteSize(argv["sample-bytes"]);
   const report = await run({
     vaultDir,
     projectsDir: argv["projects-dir"],
     period,
-    sampleSize: argv["sample-size"]
+    byteBudget
   });
   const out = argv.format === "text" ? formatText(report) : formatJson(report);
   process.stdout.write(out);
