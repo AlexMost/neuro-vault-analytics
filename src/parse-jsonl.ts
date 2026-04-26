@@ -18,9 +18,9 @@ interface SdkLine {
   message?: { role?: string; content?: ContentBlock[] };
 }
 
-const ARGS_CAP = 120;
+const ARGS_CAP = 200;
 
-function summarizeArgs(input: unknown): string {
+export function summarizeArgs(input: unknown, vaultDir?: string): string {
   let s: string;
   try {
     s = typeof input === 'string' ? input : JSON.stringify(input);
@@ -28,6 +28,9 @@ function summarizeArgs(input: unknown): string {
     s = String(input);
   }
   s = s.replace(/\s+/g, ' ').trim();
+  if (vaultDir && vaultDir.length > 0) {
+    s = s.split(`${vaultDir}/`).join('vault:');
+  }
   return s.length > ARGS_CAP ? s.slice(0, ARGS_CAP - 1) + '…' : s;
 }
 
@@ -40,8 +43,11 @@ function sizeOf(content: unknown): number {
   }
 }
 
-export function extractToolCalls(jsonl: string, source: ToolCall['source']): ToolCall[] {
-  // First pass: collect tool_use entries and tool_result entries keyed by tool_use_id.
+export function extractToolCalls(
+  jsonl: string,
+  source: ToolCall['source'],
+  vaultDir?: string,
+): ToolCall[] {
   const calls = new Map<
     string,
     { name: string; argsSummary: string; ts: number; source: ToolCall['source'] }
@@ -70,7 +76,7 @@ export function extractToolCalls(jsonl: string, source: ToolCall['source']): Too
         ) {
           calls.set(block.id, {
             name: block.name,
-            argsSummary: summarizeArgs(block.input),
+            argsSummary: summarizeArgs(block.input, vaultDir),
             ts: Number.isFinite(ts) ? ts : 0,
             source,
           });

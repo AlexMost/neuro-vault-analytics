@@ -61,7 +61,14 @@ Use the prompt template in `${CLAUDE_PLUGIN_ROOT}/skills/analyze-vault-usage/pro
 
 ## Step 3 — Write the note
 
-Compute the destination path: `Inbox/neuro-vault-usage/<YYYY>-W<WW>.md`, where `YYYY-Www` is the ISO week of `period.endMs` (the run instant). If the file already exists, overwrite it and tell the user one line: "Overwriting existing report for <YYYY-Www>."
+Compute the destination path based on the actual window length (`period.endMs - period.startMs`):
+
+- If the window is **>= 7 days** → `Inbox/neuro-vault-usage/<YYYY-Www>.md`, where `YYYY-Www` is the ISO week of `period.endMs`.
+- If the window is **< 7 days** → `Inbox/neuro-vault-usage/<YYYY-MM-DD-of-period.startMs>_to_<YYYY-MM-DD-of-period.endMs>.md`.
+
+The note title `# Usage analytics <label>` mirrors the chosen filename label (`2026-W17` or `2026-04-25_to_2026-04-26`).
+
+If the file already exists, overwrite it and tell the user one line: "Overwriting existing report for <label>."
 
 Write the file via whichever Obsidian skill the user has available (e.g. `obsidian:obsidian-cli`). Frontmatter required:
 
@@ -73,11 +80,12 @@ period_start: <YYYY-MM-DD of period.startMs>
 period_end: <YYYY-MM-DD of period.endMs>
 sessions_total: <stats.sessionsTotal>
 sessions_vault: <stats.sessionsVault>
-tags: [analytics, neuro-vault, ephemeral]
+tags: [analytics, neuro-vault]
+archived: false
 ---
 ```
 
-The body follows the template in `prompt.md` (TL;DR, Numbers, Patterns observed, Suggestions, Raw aggregates).
+`ephemeral` is intentionally **not** in `tags` — these notes are kept for cross-period diff. The explicit `archived: false` field is reserved for future lifecycle tooling.
 
 ## Empty period
 

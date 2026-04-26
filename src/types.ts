@@ -64,6 +64,35 @@ export interface SessionSummary {
   outcome: Outcome;
 }
 
+/** Top-N tool counts within a session (vs the global aggregates which are cross-session). */
+export interface SampledNonMcpSummary {
+  total: number;
+  topTools: AggregateBucket[];
+  nGrams: SequenceBucket[];
+}
+
+export interface SampledToolCallSummary {
+  total: number;
+  mcpCalls: ToolCall[];
+  anomalies: ToolCall[];
+  nonMcpSummary: SampledNonMcpSummary;
+}
+
+export interface SampledSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  durationMs: number;
+  model: string;
+  contextPercentage: number;
+  cacheHitRatio: number;
+  currentNote: string | null;
+  outcome: Outcome;
+  subagent: SubagentStats;
+  toolCallSummary: SampledToolCallSummary;
+}
+
 export interface AggregateBucket {
   key: string;
   count: number;
@@ -112,7 +141,7 @@ export interface AnalyticsReport {
     avgToolCallsPerSession: number;
   };
   aggregates: Aggregates;
-  samples: SessionSummary[];
+  samples: SampledSession[];
   warnings: string[];
 }
 

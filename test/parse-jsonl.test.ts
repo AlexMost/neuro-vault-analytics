@@ -84,7 +84,7 @@ describe('extractToolCalls', () => {
     expect(calls[0]!.argsSummary).toContain('vector db');
   });
 
-  it('caps argsSummary length', () => {
+  it('caps argsSummary length at 200 chars', () => {
     const long = 'x'.repeat(500);
     const lines = JSON.stringify({
       type: 'assistant',
@@ -95,7 +95,8 @@ describe('extractToolCalls', () => {
       },
     });
     const [call] = extractToolCalls(lines, 'main');
-    expect(call!.argsSummary.length).toBeLessThanOrEqual(120);
+    expect(call!.argsSummary.length).toBeLessThanOrEqual(200);
+    expect(call!.argsSummary.endsWith('…')).toBe(true);
   });
 
   it('passes the source label through', () => {
@@ -109,5 +110,46 @@ describe('extractToolCalls', () => {
     });
     const [call] = extractToolCalls(oneCall, 'subagent:abc');
     expect(call!.source).toBe('subagent:abc');
+  });
+
+  it('replaces vault-prefix occurrences in argsSummary with "vault:"', () => {
+    const lines = JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-04-22T17:15:08.000Z',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: 't',
+            name: 'Read',
+            input: { file_path: '/Users/me/Vault/Daily/2026-04-25.md' },
+          },
+        ],
+      },
+    });
+    const [call] = extractToolCalls(lines, 'main', '/Users/me/Vault');
+    expect(call!.argsSummary).not.toContain('/Users/');
+    expect(call!.argsSummary).toContain('vault:Daily/2026-04-25.md');
+  });
+
+  it('treats vault-prefix replacement as literal, not regex', () => {
+    const lines = JSON.stringify({
+      type: 'assistant',
+      timestamp: '2026-04-22T17:15:08.000Z',
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: 't',
+            name: 'Read',
+            input: { file_path: '/Users/me/Vault (work)/Notes/x.md' },
+          },
+        ],
+      },
+    });
+    const [call] = extractToolCalls(lines, 'main', '/Users/me/Vault (work)');
+    expect(call!.argsSummary).toContain('vault:Notes/x.md');
   });
 });

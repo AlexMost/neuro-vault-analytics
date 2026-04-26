@@ -25,8 +25,8 @@ describe('formatJson', () => {
     expect(JSON.parse(formatJson(REPORT))).toEqual(REPORT);
   });
 
-  it('uses 2-space indentation', () => {
-    expect(formatJson(REPORT)).toContain('\n  "period"');
+  it('ends with a newline', () => {
+    expect(formatJson(REPORT)).toMatch(/\n$/);
   });
 });
 
