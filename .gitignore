@@ -1,0 +1,14 @@
+.worktrees/
+.idea/
+node_modules/
+coverage/
+*.tsbuildinfo
+.DS_Store
+.claude
+
+# Implementation plans are local working artifacts; specs are the canonical record.
+docs/superpowers/plans/
+
+# NOTE: dist/ is intentionally NOT ignored.
+# This package ships as a Claude Code plugin; the skill invokes
+# ${CLAUDE_PLUGIN_ROOT}/dist/cli.js directly, so the built CLI must be checked in.

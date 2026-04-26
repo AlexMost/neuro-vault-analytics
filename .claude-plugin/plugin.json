@@ -1,0 +1,6 @@
+{
+  "name": "neuro-vault-analytics",
+  "version": "0.1.0",
+  "description": "Analyze Claudian conversation records to surface usage patterns and actionable suggestions for the neuro-vault project.",
+  "homepage": "https://github.com/AlexMost/neuro-vault-analytics"
+}
