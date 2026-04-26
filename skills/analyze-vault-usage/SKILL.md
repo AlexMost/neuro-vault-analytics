@@ -36,8 +36,13 @@ type AnalyticsReport = {
     topTools: { key: string; count: number }[];
     unusedTools: string[];
     topSequences: { sequence: string[]; count: number; sessionIds: string[] }[];
-    largestResultTools: { key: string; count: number }[];
-    stalePathErrors: { sessionId: string; failedPath: string | null }[];
+    largestResultTools: { key: string; avgSizeBytes: number }[];
+    stalePathErrors: {
+      sessionId: string;
+      searchToolCallTs: number;
+      readToolCallTs: number;
+      failedPath: string | null;
+    }[];
     currentNoteAnchors: { key: string; count: number }[];
     cacheHitDistribution: { p50: number; p90: number; mean: number };
     subagentBudget: { mean: number; p95: number; max: number };

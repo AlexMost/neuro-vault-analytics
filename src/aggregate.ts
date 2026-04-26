@@ -19,6 +19,11 @@ function topByCount(map: Map<string, number>, n: number): AggregateBucket[] {
     .slice(0, n);
 }
 
+function extractPath(argsSummary: string): string | null {
+  const m = /"path":"([^"]+)"/.exec(argsSummary);
+  return m ? m[1]! : null;
+}
+
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 0) return 0;
   const idx = Math.min(sorted.length - 1, Math.floor((p / 100) * (sorted.length - 1)));
@@ -81,7 +86,7 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
           sessionId: s.id,
           searchToolCallTs: a.ts,
           readToolCallTs: b.ts,
-          failedPath: null,
+          failedPath: extractPath(b.argsSummary),
         });
       }
     }

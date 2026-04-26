@@ -58,7 +58,7 @@ export async function discoverSessions(args: DiscoverArgs): Promise<DiscoverResu
   const sessionsDir = path.join(args.vaultDir, '.claude', 'sessions');
   let metaFiles: string[];
   try {
-    metaFiles = (await fs.readdir(sessionsDir)).filter((f) => f.endsWith('.meta.json'));
+    metaFiles = (await fs.readdir(sessionsDir)).filter((f) => f.endsWith('.meta.json')).sort();
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return { discovered: [], warnings: [`No sessions directory at ${sessionsDir}`] };

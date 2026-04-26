@@ -96,6 +96,10 @@ var READ_NOTE = "mcp__neuro-vault-mcp__read_note";
 function topByCount(map, n) {
   return [...map.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)).slice(0, n);
 }
+function extractPath(argsSummary) {
+  const m = /"path":"([^"]+)"/.exec(argsSummary);
+  return m ? m[1] : null;
+}
 function percentile(sorted, p) {
   if (sorted.length === 0) return 0;
   const idx = Math.min(sorted.length - 1, Math.floor(p / 100 * (sorted.length - 1)));
@@ -149,7 +153,7 @@ function aggregate(sessions) {
           sessionId: s.id,
           searchToolCallTs: a.ts,
           readToolCallTs: b.ts,
-          failedPath: null
+          failedPath: extractPath(b.argsSummary)
         });
       }
     }
@@ -212,7 +216,7 @@ async function discoverSessions(args) {
   const sessionsDir = path2.join(args.vaultDir, ".claude", "sessions");
   let metaFiles;
   try {
-    metaFiles = (await fs2.readdir(sessionsDir)).filter((f) => f.endsWith(".meta.json"));
+    metaFiles = (await fs2.readdir(sessionsDir)).filter((f) => f.endsWith(".meta.json")).sort();
   } catch (err) {
     if (err.code === "ENOENT") {
       return { discovered: [], warnings: [`No sessions directory at ${sessionsDir}`] };

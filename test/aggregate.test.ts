@@ -70,12 +70,18 @@ describe('aggregate', () => {
       id: 'B',
       toolCalls: [
         call({ name: 'mcp__neuro-vault-mcp__search_notes', ts: 1 }),
-        call({ name: 'mcp__neuro-vault-mcp__read_note', status: 'error', ts: 2 }),
+        call({
+          name: 'mcp__neuro-vault-mcp__read_note',
+          status: 'error',
+          ts: 2,
+          argsSummary: '{"path":"Tasks/Old.md"}',
+        }),
       ],
     });
     const agg = aggregate([s]);
     expect(agg.stalePathErrors).toHaveLength(1);
     expect(agg.stalePathErrors[0]!.sessionId).toBe('B');
+    expect(agg.stalePathErrors[0]!.failedPath).toBe('Tasks/Old.md');
   });
 
   it('does not flag stale-path when read succeeds', () => {
