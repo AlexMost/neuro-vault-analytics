@@ -2,15 +2,9 @@
 
 Claude Code plugin and standalone CLI that turns Claudian conversation records into a weekly usage-review note for the [neuro-vault](https://github.com/AlexMost/neuro-vault) project.
 
-> **Status:** scaffold only. Implementation tracked by the spec in [`docs/superpowers/specs/2026-04-26-usage-analytics-workflow-design.md`](./docs/superpowers/specs/2026-04-26-usage-analytics-workflow-design.md).
-
 ## What it does
 
-- Reads conversation records produced by the [Claudian](https://github.com/iansinnott/claudian) Obsidian plugin.
-- Aggregates them deterministically (tool counts, N+1 patterns, dead ends, cache-hit ratios, subagent budgets) in TypeScript.
-- Hands a sampled report to the LLM via the `/analyze-vault-usage` skill, which writes an actionable note to `Inbox/neuro-vault-usage/YYYY-Www.md` in the vault.
-
-The numeric work is deterministic CLI; the LLM is only used where it is genuinely valuable (pattern critique, suggestions).
+Use `/analyze-vault-usage 7d` from inside a Claude Code session, or run `nv-analytics --period 7d` directly. The CLI computes deterministic aggregates (top tools, N+1 patterns, dead ends, cache-hit ratios, subagent budgets) over your Claudian conversation records; the skill hands the aggregates to Claude for pattern critique and writes an actionable note to `Inbox/neuro-vault-usage/YYYY-Www.md` in the vault.
 
 ## Install
 
@@ -34,15 +28,50 @@ Or directly from the shell:
 nv-analytics --period 7d --vault ~/Obsidian --format json
 ```
 
+### Running the CLI locally (without installing the plugin)
+
+To inspect raw CLI output against a real vault — useful for debugging the analyzer or eyeballing aggregates before the LLM critique step:
+
+```sh
+git clone https://github.com/AlexMost/neuro-vault-analytics.git
+cd neuro-vault-analytics
+npm install
+npm run build
+
+# JSON (full report, machine-readable) — pipe through jq for readability
+node dist/cli.js --vault ~/Obsidian --period 7d --format json | jq .
+
+# Text (human-friendly summary)
+node dist/cli.js --vault ~/Obsidian --period 7d --format text
+```
+
+You can also run from inside the vault directory and drop `--vault` (the CLI walks up looking for `.obsidian/`):
+
+```sh
+cd ~/Obsidian
+node /path/to/neuro-vault-analytics/dist/cli.js --period 14d --format text
+```
+
+Available flags: `--period <Nd|Nw>` (e.g. `7d`, `2w`), `--vault <path>`, `--sample-size <N>` (default 15), `--format json|text`. If `stats.sessionsVault` is 0, either the period is empty or no session was vault-relevant — check `warnings[]` in the JSON output.
+
+Sample output (truncated):
+
+```json
+{
+  "period": { "label": "7d", "startMs": 1745000000000, "endMs": 1745604800000 },
+  "stats": { "sessionsTotal": 18, "sessionsVault": 12, "totalToolCalls": 84, "avgToolCallsPerSession": 7.0 },
+  "aggregates": {
+    "topTools": [{ "key": "mcp__neuro-vault-mcp__search_notes", "count": 31 }, ...],
+    ...
+  },
+  "samples": [...],
+  "warnings": []
+}
+```
+
 ## Where Claudian stores conversation records
 
-Documented here so a future contributor (or future you) does not have to re-derive it:
-
-- **Metadata:** `{vault}/.claude/sessions/{convId}.meta.json` — one file per conversation, with `sessionId`, `currentNote`, `usage` (tokens, cache breakdown).
-- **Main message log:** `~/.claude/projects/{encoded-vault-path}/{sessionId}.jsonl` — standard Claude Code SDK JSONL with `tool_use` / `tool_result` blocks. `encoded-vault-path` is the absolute vault path with `/` → `-` (e.g. `/Users/me/Obsidian` → `-Users-me-Obsidian`).
-- **Subagent traces:** `~/.claude/projects/{encoded-vault-path}/{sessionId}/subagents/agent-{agentId}.jsonl` — sidecar files, same SDK schema.
-
-Discovery: glob the metadata files, join by `sessionId` against the SDK JSONL, then pick up any sidecars in the matching `subagents/` directory.
+Detailed record layout: see [`docs/architecture/claudian-records.md`](./docs/architecture/claudian-records.md).
 
 ## Development
 
