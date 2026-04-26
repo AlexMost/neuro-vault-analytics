@@ -4,7 +4,7 @@ You are reviewing one week of Claude Code usage in a vault, based on a determini
 
 ## Inputs
 
-`AnalyticsReport`:
+`AnalyticsReport` (key fields used below: `period`, `stats`, `aggregates`, `samples`):
 
 ```json
 <<REPORT_JSON>>
@@ -57,9 +57,11 @@ Where:
 
 - `CONFIDENCE` is `HIGH`, `MED`, or `LOW`.
 - `N sessions` is the count of sample sessions exhibiting the pattern.
-- `~XXX KB/run` is your byte-cost estimate, derived from `aggregates.largestResultTools` (avg result size) × the relevant frequency (from `topTools` or `topSequences`). Show the arithmetic in one parenthetical: `(~12 KB × 4 calls/session ≈ 48 KB/run)`.
+- `~XXX KB/run` is your byte-cost estimate, derived from `aggregates.largestResultTools` (avg result size) × the relevant frequency (from `topTools` or `topSequences`). Show the arithmetic in one parenthetical: `(~12 KB × 4 calls/session ≈ 48 KB/run)`. Only `CONFIDENCE`-tier entries carry this figure; `[REQUIRES_VERIFICATION]` and `[BLOCKED: …]` entries do not.
 
 ### Required guards
+
+The next three rules tell **you** how to populate the `## Suggestions` section above. Do NOT copy rule text into the output note — apply it.
 
 1. **Cost-grounded confidence.** A `[HIGH]` entry MUST include a `~XXX KB/run` figure. If you cannot produce one from the report, the recommendation is at most `[MED]`. If you also cannot justify `[MED]`, downgrade to `[LOW]` or drop it.
 
