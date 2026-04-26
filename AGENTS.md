@@ -60,7 +60,7 @@ Trivial work (typo fix, dependency bump, doc tweak) does not need a spec.
 
 ## Plugin packaging notes
 
-- This package is distributed as a Claude Code plugin (`/plugin install AlexMost/neuro-vault-analytics`).
+- This package is distributed as a Claude Code plugin. Users install via the marketplace flow: `/plugin marketplace add AlexMost/neuro-vault-analytics` followed by `/plugin install neuro-vault-analytics@neuro-vault-analytics`. The marketplace manifest lives at `.claude-plugin/marketplace.json` and ships verbatim alongside `plugin.json`.
 - `dist/` is **checked in** — the skill invokes `${CLAUDE_PLUGIN_ROOT}/dist/cli.js` directly, so consumers do not run `npm install` or `npm run build`. Run `npm run build` before committing CLI changes.
 - The skill manifest lives in `skills/analyze-vault-usage/SKILL.md`; the plugin manifest lives in `.claude-plugin/plugin.json`. Both ship verbatim; do not generate them.
 - The CLI is also usable standalone (`nv-analytics --period 7d`) for debugging or for users who do not want the plugin.

@@ -1,0 +1,14 @@
+{
+  "name": "neuro-vault-analytics",
+  "owner": {
+    "name": "AlexMost",
+    "url": "https://github.com/AlexMost"
+  },
+  "plugins": [
+    {
+      "name": "neuro-vault-analytics",
+      "source": ".",
+      "description": "Analyze Claudian conversation records to surface usage patterns and actionable suggestions for the neuro-vault project."
+    }
+  ]
+}
