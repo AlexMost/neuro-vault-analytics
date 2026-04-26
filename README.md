@@ -8,11 +8,21 @@ Use `/analyze-vault-usage 7d` from inside a Claude Code session, or run `nv-anal
 
 ## Install
 
-```sh
-/plugin install AlexMost/neuro-vault-analytics
+From inside Claude Code, run two commands:
+
+```
+/plugin marketplace add AlexMost/neuro-vault-analytics
+/plugin install neuro-vault-analytics@neuro-vault-analytics
 ```
 
-The skill `/analyze-vault-usage` and CLI `nv-analytics` ship together — nothing extra to copy.
+The first registers this repo as a marketplace; the second installs the plugin from it. The skill `/analyze-vault-usage` and CLI `nv-analytics` ship together — nothing extra to copy.
+
+For local development, point the marketplace at a cloned checkout:
+
+```
+/plugin marketplace add /path/to/neuro-vault-analytics
+/plugin install neuro-vault-analytics@neuro-vault-analytics
+```
 
 ## Usage
 
