@@ -9,6 +9,8 @@ export interface ClaudianMeta {
   currentNote: string | null;
   /** Joins to the SDK JSONL filename. */
   sessionId: string;
+  /** Claudian also persists the SDK-side session id; in current builds it equals `sessionId`. */
+  sdkSessionId?: string;
   usage: {
     model: string;
     inputTokens: number;
@@ -41,7 +43,8 @@ export interface SubagentStats {
   count: number;
   /** Tool calls per subagent (one entry per dispatched subagent). */
   toolCallsPerAgent: number[];
-  successRate: number; // fraction with status === 'ok' on the agent's last tool call
+  /** Fraction of subagents whose final tool call ended with `status === 'ok'`. Proxy for outcome, not a per-call success ratio. */
+  finalCallOkRate: number;
 }
 
 export type Outcome = 'completed' | 'dead_end' | 'abandoned';
@@ -66,6 +69,12 @@ export interface AggregateBucket {
   count: number;
 }
 
+/** Bucket whose value is an average byte-size, not a count. Used by `largestResultTools`. */
+export interface SizeBucket {
+  key: string;
+  avgSizeBytes: number;
+}
+
 export interface SequenceBucket {
   /** e.g. ['mcp__neuro-vault-mcp__search_notes', 'mcp__neuro-vault-mcp__read_note']. */
   sequence: string[];
@@ -78,6 +87,7 @@ export interface StalePathHit {
   sessionId: string;
   searchToolCallTs: number;
   readToolCallTs: number;
+  /** Path that the read attempted; null when it could not be extracted from the tool_use args. */
   failedPath: string | null;
 }
 
@@ -85,7 +95,7 @@ export interface Aggregates {
   topTools: AggregateBucket[];
   unusedTools: string[];
   topSequences: SequenceBucket[];
-  largestResultTools: AggregateBucket[]; // bucket value = avg result size in bytes
+  largestResultTools: SizeBucket[];
   stalePathErrors: StalePathHit[];
   currentNoteAnchors: AggregateBucket[];
   cacheHitDistribution: { p50: number; p90: number; mean: number };
