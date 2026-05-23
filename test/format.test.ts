@@ -6,8 +6,7 @@ const REPORT: AnalyticsReport = {
   period: { startMs: 0, endMs: 1, label: '7d' },
   stats: { sessionsTotal: 5, sessionsVault: 3, totalToolCalls: 12, avgToolCallsPerSession: 4 },
   aggregates: {
-    topTools: [{ key: 'mcp__neuro-vault-mcp__search_notes', count: 6 }],
-    unusedTools: ['mcp__neuro-vault-mcp__find_duplicates'],
+    topTools: [{ key: 'mcp__neuro-vault__search_notes', count: 6 }],
     topSequences: [],
     largestResultTools: [],
     stalePathErrors: [],
@@ -25,8 +24,8 @@ describe('formatJson', () => {
     expect(JSON.parse(formatJson(REPORT))).toEqual(REPORT);
   });
 
-  it('uses 2-space indentation', () => {
-    expect(formatJson(REPORT)).toContain('\n  "period"');
+  it('ends with a newline', () => {
+    expect(formatJson(REPORT)).toMatch(/\n$/);
   });
 });
 

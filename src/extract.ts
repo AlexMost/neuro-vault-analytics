@@ -21,10 +21,14 @@ function lastMainStatus(main: ToolCall[]): Outcome {
   return main[main.length - 1]!.status === 'error' ? 'dead_end' : 'completed';
 }
 
-export function toSessionSummary(d: Discovered): SessionSummary {
-  const main = extractToolCalls(d.mainLog, 'main');
+export interface ToSessionSummaryOpts {
+  vaultDir?: string;
+}
+
+export function toSessionSummary(d: Discovered, opts: ToSessionSummaryOpts = {}): SessionSummary {
+  const main = extractToolCalls(d.mainLog, 'main', opts.vaultDir);
   const perAgent = d.subagentLogs.map((s) =>
-    extractToolCalls(s.jsonl, `subagent:${s.agentId}` as const),
+    extractToolCalls(s.jsonl, `subagent:${s.agentId}` as const, opts.vaultDir),
   );
   const all = [...main, ...perAgent.flat()].sort((a, b) => a.ts - b.ts);
 

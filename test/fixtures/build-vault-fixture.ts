@@ -110,21 +110,21 @@ const METAS: Record<string, unknown> = {
 
 const SDK_LOGS: Record<string, string> = {
   'session-A.jsonl': [
-    '{"type":"assistant","timestamp":"2026-04-26T10:00:01.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a1","name":"mcp__neuro-vault-mcp__get_tag","input":{"tag":"#today"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:00:01.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a1","name":"mcp__neuro-vault__get_tag","input":{"tag":"#today"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:00:02.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a1","content":"five paths"}]}}',
-    '{"type":"assistant","timestamp":"2026-04-26T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a2","name":"mcp__neuro-vault-mcp__read_property","input":{"path":"Tasks/1.md"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a2","name":"mcp__neuro-vault__read_property","input":{"path":"Tasks/1.md"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:00:04.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a2","content":"x"}]}}',
-    '{"type":"assistant","timestamp":"2026-04-26T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a3","name":"mcp__neuro-vault-mcp__read_property","input":{"path":"Tasks/2.md"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a3","name":"mcp__neuro-vault__read_property","input":{"path":"Tasks/2.md"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:00:06.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a3","content":"x"}]}}',
-    '{"type":"assistant","timestamp":"2026-04-26T10:00:07.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a4","name":"mcp__neuro-vault-mcp__read_property","input":{"path":"Tasks/3.md"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:00:07.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a4","name":"mcp__neuro-vault__read_property","input":{"path":"Tasks/3.md"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:00:08.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a4","content":"x"}]}}',
-    '{"type":"assistant","timestamp":"2026-04-26T10:00:09.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a5","name":"mcp__neuro-vault-mcp__read_property","input":{"path":"Tasks/4.md"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:00:09.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a5","name":"mcp__neuro-vault__read_property","input":{"path":"Tasks/4.md"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:00:10.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a5","content":"x"}]}}',
   ].join('\n'),
   'session-B.jsonl': [
-    '{"type":"assistant","timestamp":"2026-04-26T10:10:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"b1","name":"mcp__neuro-vault-mcp__search_notes","input":{"query":"foo"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:10:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"b1","name":"mcp__neuro-vault__search_notes","input":{"query":"foo"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:10:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"b1","content":"[\\"Tasks/Old.md\\"]"}]}}',
-    '{"type":"assistant","timestamp":"2026-04-26T10:10:02.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"b2","name":"mcp__neuro-vault-mcp__read_note","input":{"path":"Tasks/Old.md"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T10:10:02.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"b2","name":"mcp__neuro-vault__read_notes","input":{"paths":["Tasks/Old.md"]}}]}}',
     '{"type":"user","timestamp":"2026-04-26T10:10:03.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"b2","content":"not found","is_error":true}]}}',
   ].join('\n'),
   'session-C.jsonl': [
@@ -132,13 +132,13 @@ const SDK_LOGS: Record<string, string> = {
     '{"type":"user","timestamp":"2026-04-26T10:20:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"c1","content":"file.txt"}]}}',
   ].join('\n'),
   'session-D.jsonl': [
-    '{"type":"assistant","timestamp":"2026-04-26T11:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"d1","name":"mcp__neuro-vault-mcp__search_notes","input":{"query":"plan"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T11:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"d1","name":"mcp__neuro-vault__search_notes","input":{"query":"plan"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T11:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"d1","content":"results"}]}}',
-    '{"type":"assistant","timestamp":"2026-04-26T11:00:02.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"d2","name":"mcp__neuro-vault-mcp__read_note","input":{"path":"Tasks/Planning.md"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T11:00:02.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"d2","name":"mcp__neuro-vault__read_notes","input":{"paths":["Tasks/Planning.md"]}}]}}',
     '{"type":"user","timestamp":"2026-04-26T11:00:03.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"d2","content":"long content"}]}}',
   ].join('\n'),
   'session-E.jsonl': [
-    '{"type":"assistant","timestamp":"2026-04-26T12:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1","name":"mcp__neuro-vault-mcp__search_notes","input":{"query":"x"}}]}}',
+    '{"type":"assistant","timestamp":"2026-04-26T12:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1","name":"mcp__neuro-vault__search_notes","input":{"query":"x"}}]}}',
     '{"type":"user","timestamp":"2026-04-26T12:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"e1","content":"r"}]}}',
   ].join('\n'),
 };
@@ -146,9 +146,9 @@ const SDK_LOGS: Record<string, string> = {
 const SUBAGENT_LOGS: Record<string, Record<string, string>> = {
   'session-E': {
     'agent-1.jsonl': [
-      '{"type":"assistant","timestamp":"2026-04-26T12:00:10.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1a","name":"mcp__neuro-vault-mcp__read_note","input":{"path":"a.md"}}]}}',
+      '{"type":"assistant","timestamp":"2026-04-26T12:00:10.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1a","name":"mcp__neuro-vault__read_notes","input":{"paths":["a.md"]}}]}}',
       '{"type":"user","timestamp":"2026-04-26T12:00:11.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"e1a","content":"a"}]}}',
-      '{"type":"assistant","timestamp":"2026-04-26T12:00:12.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1b","name":"mcp__neuro-vault-mcp__read_note","input":{"path":"b.md"}}]}}',
+      '{"type":"assistant","timestamp":"2026-04-26T12:00:12.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"e1b","name":"mcp__neuro-vault__read_notes","input":{"paths":["b.md"]}}]}}',
       '{"type":"user","timestamp":"2026-04-26T12:00:13.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"e1b","content":"b"}]}}',
     ].join('\n'),
   },

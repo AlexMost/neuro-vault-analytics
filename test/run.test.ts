@@ -20,18 +20,18 @@ describe('run', () => {
       vaultDir: fixture.vaultDir,
       projectsDir: fixture.projectsDir,
       period: { startMs: 1_745_000_000_000, endMs: 1_746_000_000_000, label: 'fixture' },
-      sampleSize: 10,
+      byteBudget: 10_000_000,
     });
 
     // Six metas exist (A-F); F is missing-SDK and only meta. The full count is 6.
     expect(report.stats.sessionsTotal).toBe(6);
     // C is non-vault (no currentNote, no neuro-vault tools, no wiki-link) → filtered out.
     expect(report.stats.sessionsVault).toBe(5);
-    // A is the N+1 fixture: read_property (4 calls) ties with read_note (4 calls);
-    // tie-break is alphabetical so read_note sorts first.
-    expect(report.aggregates.topTools[0]!.key).toBe('mcp__neuro-vault-mcp__read_note');
+    // A is the N+1 fixture: read_property (4 calls) ties with read_notes (4 calls);
+    // tie-break is alphabetical so read_notes sorts first.
+    expect(report.aggregates.topTools[0]!.key).toBe('mcp__neuro-vault__read_notes');
     expect(report.aggregates.topTools[0]!.count).toBe(4);
-    expect(report.aggregates.topTools[1]!.key).toBe('mcp__neuro-vault-mcp__read_property');
+    expect(report.aggregates.topTools[1]!.key).toBe('mcp__neuro-vault__read_property');
     expect(report.aggregates.topTools[1]!.count).toBe(4);
     // B is the stale-path fixture.
     expect(report.aggregates.stalePathErrors).toHaveLength(1);
