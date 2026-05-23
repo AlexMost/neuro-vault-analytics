@@ -43,8 +43,8 @@ describe('projectSession', () => {
   it('puts MCP calls in mcpCalls verbatim and non-MCP into nonMcpSummary', () => {
     const session = s('x', 0, 0);
     session.toolCalls = [
-      call('mcp__neuro-vault-mcp__search_notes'),
-      call('mcp__neuro-vault-mcp__read_note'),
+      call('mcp__neuro-vault__search_notes'),
+      call('mcp__neuro-vault__read_notes'),
       call('Read'),
       call('Read'),
       call('Edit'),
@@ -52,8 +52,8 @@ describe('projectSession', () => {
     const projected = projectSession(session);
     expect(projected.toolCallSummary.total).toBe(5);
     expect(projected.toolCallSummary.mcpCalls.map((c) => c.name)).toEqual([
-      'mcp__neuro-vault-mcp__search_notes',
-      'mcp__neuro-vault-mcp__read_note',
+      'mcp__neuro-vault__search_notes',
+      'mcp__neuro-vault__read_notes',
     ]);
     expect(projected.toolCallSummary.nonMcpSummary.total).toBe(3);
     expect(projected.toolCallSummary.nonMcpSummary.topTools.find((t) => t.key === 'Read')!.count).toBe(2);
@@ -64,7 +64,7 @@ describe('projectSession', () => {
     session.toolCalls = [
       call('Read', { resultSize: 10_000 }),
       call('Edit', { status: 'error' }),
-      call('mcp__neuro-vault-mcp__read_note', { status: 'error' }),
+      call('mcp__neuro-vault__read_notes', { status: 'error' }),
       call('Read'),
     ];
     const p = projectSession(session);

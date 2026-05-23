@@ -45,7 +45,7 @@ describe('isVaultRelevant', () => {
   it('matches sessions with neuro-vault MCP calls', () => {
     const d: Discovered = {
       meta: meta(),
-      mainLog: TOOL_LINE('mcp__neuro-vault-mcp__search_notes'),
+      mainLog: TOOL_LINE('mcp__neuro-vault__search_notes'),
       subagentLogs: [],
     };
     expect(isVaultRelevant(d)).toBe(true);
@@ -55,7 +55,7 @@ describe('isVaultRelevant', () => {
     const d: Discovered = {
       meta: meta(),
       mainLog: TOOL_LINE('Bash'),
-      subagentLogs: [{ agentId: '1', jsonl: TOOL_LINE('mcp__neuro-vault-mcp__read_note') }],
+      subagentLogs: [{ agentId: '1', jsonl: TOOL_LINE('mcp__neuro-vault__read_notes') }],
     };
     expect(isVaultRelevant(d)).toBe(true);
   });

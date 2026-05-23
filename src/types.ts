@@ -25,7 +25,7 @@ export interface ClaudianMeta {
 
 /** A single tool invocation extracted from the SDK JSONL. */
 export interface ToolCall {
-  /** Tool name as reported by the SDK (e.g. `mcp__neuro-vault-mcp__search_notes`). */
+  /** Tool name as reported by the SDK (e.g. `mcp__neuro-vault__search_notes`). */
   name: string;
   /** Best-effort one-line summary of the input args, capped at ~120 chars. */
   argsSummary: string;
@@ -105,7 +105,7 @@ export interface SizeBucket {
 }
 
 export interface SequenceBucket {
-  /** e.g. ['mcp__neuro-vault-mcp__search_notes', 'mcp__neuro-vault-mcp__read_note']. */
+  /** e.g. ['mcp__neuro-vault__search_notes', 'mcp__neuro-vault__read_notes']. */
   sequence: string[];
   count: number;
   /** Session ids where this sequence occurred. */
@@ -122,7 +122,6 @@ export interface StalePathHit {
 
 export interface Aggregates {
   topTools: AggregateBucket[];
-  unusedTools: string[];
   topSequences: SequenceBucket[];
   largestResultTools: SizeBucket[];
   stalePathErrors: StalePathHit[];
@@ -145,12 +144,3 @@ export interface AnalyticsReport {
   warnings: string[];
 }
 
-/** Known/expected MCP tool names. Used to compute `unusedTools`. */
-export const KNOWN_NEURO_VAULT_TOOLS: readonly string[] = [
-  'mcp__neuro-vault-mcp__search_notes',
-  'mcp__neuro-vault-mcp__read_note',
-  'mcp__neuro-vault-mcp__get_tag',
-  'mcp__neuro-vault-mcp__read_property',
-  'mcp__neuro-vault-mcp__find_duplicates',
-  'mcp__neuro-vault-mcp__get_stats',
-];

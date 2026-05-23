@@ -6,8 +6,7 @@ const REPORT: AnalyticsReport = {
   period: { startMs: 0, endMs: 1, label: '7d' },
   stats: { sessionsTotal: 5, sessionsVault: 3, totalToolCalls: 12, avgToolCallsPerSession: 4 },
   aggregates: {
-    topTools: [{ key: 'mcp__neuro-vault-mcp__search_notes', count: 6 }],
-    unusedTools: ['mcp__neuro-vault-mcp__find_duplicates'],
+    topTools: [{ key: 'mcp__neuro-vault__search_notes', count: 6 }],
     topSequences: [],
     largestResultTools: [],
     stalePathErrors: [],

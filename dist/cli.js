@@ -45,13 +45,8 @@ function formatText(report) {
     `Tool calls: ${report.stats.totalToolCalls} (avg ${report.stats.avgToolCallsPerSession.toFixed(1)} / session)`
   );
   if (report.aggregates.topTools.length > 0) {
-    const top = report.aggregates.topTools.map((t) => `${t.key.replace("mcp__neuro-vault-mcp__", "")} (${t.count})`).join(", ");
+    const top = report.aggregates.topTools.map((t) => `${t.key.replace("mcp__neuro-vault__", "")} (${t.count})`).join(", ");
     lines.push(`Top tools: ${top}`);
-  }
-  if (report.aggregates.unusedTools.length > 0) {
-    lines.push(
-      `Unused tools: ${report.aggregates.unusedTools.map((t) => t.replace("mcp__neuro-vault-mcp__", "")).join(", ")}`
-    );
   }
   if (report.aggregates.stalePathErrors.length > 0) {
     lines.push(`Stale-path errors: ${report.aggregates.stalePathErrors.length} session(s)`);
@@ -80,25 +75,19 @@ function parsePeriod(input, nowMs) {
   return { startMs: nowMs - span, endMs: nowMs, label: input };
 }
 
-// src/types.ts
-var KNOWN_NEURO_VAULT_TOOLS = [
-  "mcp__neuro-vault-mcp__search_notes",
-  "mcp__neuro-vault-mcp__read_note",
-  "mcp__neuro-vault-mcp__get_tag",
-  "mcp__neuro-vault-mcp__read_property",
-  "mcp__neuro-vault-mcp__find_duplicates",
-  "mcp__neuro-vault-mcp__get_stats"
-];
-
 // src/aggregate.ts
-var SEARCH = "mcp__neuro-vault-mcp__search_notes";
-var READ_NOTE = "mcp__neuro-vault-mcp__read_note";
+var SEARCH = "mcp__neuro-vault__search_notes";
+var READ_NOTES = "mcp__neuro-vault__read_notes";
 function topByCount(map, n) {
   return [...map.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)).slice(0, n);
 }
 function extractPath(argsSummary) {
-  const m = /"path":"([^"]+)"/.exec(argsSummary);
-  return m ? m[1] : null;
+  const arr = /"paths":\["([^"]+)"/.exec(argsSummary);
+  if (arr) return arr[1];
+  const str = /"paths":"([^"]+)"/.exec(argsSummary);
+  if (str) return str[1];
+  const legacy = /"path":"([^"]+)"/.exec(argsSummary);
+  return legacy ? legacy[1] : null;
 }
 function percentile(sorted, p) {
   if (sorted.length === 0) return 0;
@@ -148,7 +137,7 @@ function aggregate(sessions) {
     for (let i = 0; i + 1 < s.toolCalls.length; i++) {
       const a = s.toolCalls[i];
       const b = s.toolCalls[i + 1];
-      if (a.name === SEARCH && b.name === READ_NOTE && b.status === "error") {
+      if (a.name === SEARCH && b.name === READ_NOTES && b.status === "error") {
         stalePathErrors.push({
           sessionId: s.id,
           searchToolCallTs: a.ts,
@@ -164,7 +153,6 @@ function aggregate(sessions) {
   const topSequences = [...seqCounts.values()].sort((a, b) => b.count - a.count || a.sequence.join(">").localeCompare(b.sequence.join(">"))).slice(0, 10).map(({ sequence, count, sessionIds }) => ({ sequence, count, sessionIds: [...sessionIds] }));
   return {
     topTools: topByCount(toolCounts, 10),
-    unusedTools: KNOWN_NEURO_VAULT_TOOLS.filter((t) => !toolCounts.has(t)),
     topSequences,
     largestResultTools,
     stalePathErrors,
@@ -367,7 +355,7 @@ function toSessionSummary(d, opts = {}) {
 }
 
 // src/filter.ts
-var NEURO_VAULT_PREFIX = "mcp__neuro-vault-mcp__";
+var NEURO_VAULT_PREFIX = "mcp__neuro-vault__";
 var WIKI_LINK = /\[\[[^\]]+\]\]/;
 var TOOL_NAME = /"type":"tool_use"[^}]*"name":"([^"]+)"/g;
 var USER_TEXT = /"type":"user"[\s\S]*?"text":"([^"]+)"/g;
@@ -396,7 +384,7 @@ function isVaultRelevant(d) {
 }
 
 // src/sample.ts
-var MCP_PREFIX = "mcp__neuro-vault-mcp__";
+var MCP_PREFIX = "mcp__neuro-vault__";
 var ANOMALY_RESULT_BYTES = 5 * 1024;
 function isAnomaly(c) {
   if (c.status === "error") return true;

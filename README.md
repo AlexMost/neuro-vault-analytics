@@ -61,7 +61,7 @@ Sample output (truncated):
   "period": { "label": "7d", "startMs": 1745000000000, "endMs": 1745604800000 },
   "stats": { "sessionsTotal": 18, "sessionsVault": 12, "totalToolCalls": 84, "avgToolCallsPerSession": 7.0 },
   "aggregates": {
-    "topTools": [{ "key": "mcp__neuro-vault-mcp__search_notes", "count": 31 }, ...],
+    "topTools": [{ "key": "mcp__neuro-vault__search_notes", "count": 31 }, ...],
     ...
   },
   "samples": [...],

@@ -28,8 +28,7 @@ A single Markdown body using exactly this structure:
 | Sessions touching vault    | <sessionsVault> / <sessionsTotal>                                                                |
 | Total tool calls           | <totalToolCalls>                                                                                 |
 | Avg tool calls per session | <avgToolCallsPerSession.toFixed(1)>                                                              |
-| Top tools                  | <comma-joined top 5 from aggregates.topTools, names without the `mcp__neuro-vault-mcp__` prefix> |
-| Unused tools               | <comma-joined aggregates.unusedTools, names without prefix; "none" if empty>                     |
+| Top tools                  | <comma-joined top 5 from aggregates.topTools, names without the `mcp__neuro-vault__` prefix>     |
 | Stale-path errors          | <aggregates.stalePathErrors.length>                                                              |
 | Dead ends                  | <aggregates.deadEndCount>                                                                        |
 

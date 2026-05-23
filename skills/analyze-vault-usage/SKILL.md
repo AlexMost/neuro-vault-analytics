@@ -34,7 +34,6 @@ type AnalyticsReport = {
   };
   aggregates: {
     topTools: { key: string; count: number }[];
-    unusedTools: string[];
     topSequences: { sequence: string[]; count: number; sessionIds: string[] }[];
     largestResultTools: { key: string; avgSizeBytes: number }[];
     stalePathErrors: {

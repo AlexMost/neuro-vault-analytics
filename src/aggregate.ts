@@ -1,6 +1,5 @@
 // src/aggregate.ts
 import {
-  KNOWN_NEURO_VAULT_TOOLS,
   type AggregateBucket,
   type Aggregates,
   type SequenceBucket,
@@ -9,8 +8,8 @@ import {
   type StalePathHit,
 } from './types.js';
 
-const SEARCH = 'mcp__neuro-vault-mcp__search_notes';
-const READ_NOTE = 'mcp__neuro-vault-mcp__read_note';
+const SEARCH = 'mcp__neuro-vault__search_notes';
+const READ_NOTES = 'mcp__neuro-vault__read_notes';
 
 function topByCount(map: Map<string, number>, n: number): AggregateBucket[] {
   return [...map.entries()]
@@ -20,8 +19,12 @@ function topByCount(map: Map<string, number>, n: number): AggregateBucket[] {
 }
 
 function extractPath(argsSummary: string): string | null {
-  const m = /"path":"([^"]+)"/.exec(argsSummary);
-  return m ? m[1]! : null;
+  const arr = /"paths":\["([^"]+)"/.exec(argsSummary);
+  if (arr) return arr[1]!;
+  const str = /"paths":"([^"]+)"/.exec(argsSummary);
+  if (str) return str[1]!;
+  const legacy = /"path":"([^"]+)"/.exec(argsSummary);
+  return legacy ? legacy[1]! : null;
 }
 
 function percentile(sorted: number[], p: number): number {
@@ -81,7 +84,7 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
     for (let i = 0; i + 1 < s.toolCalls.length; i++) {
       const a = s.toolCalls[i]!;
       const b = s.toolCalls[i + 1]!;
-      if (a.name === SEARCH && b.name === READ_NOTE && b.status === 'error') {
+      if (a.name === SEARCH && b.name === READ_NOTES && b.status === 'error') {
         stalePathErrors.push({
           sessionId: s.id,
           searchToolCallTs: a.ts,
@@ -107,7 +110,6 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
 
   return {
     topTools: topByCount(toolCounts, 10),
-    unusedTools: KNOWN_NEURO_VAULT_TOOLS.filter((t) => !toolCounts.has(t)),
     topSequences,
     largestResultTools,
     stalePathErrors,
