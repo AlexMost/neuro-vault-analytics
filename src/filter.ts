@@ -1,6 +1,6 @@
 import type { Discovered } from './discover.js';
 
-const NEURO_VAULT_PREFIX = 'mcp__neuro-vault-mcp__';
+const NEURO_VAULT_PREFIX = 'mcp__neuro-vault__';
 const WIKI_LINK = /\[\[[^\]]+\]\]/;
 const TOOL_NAME = /"type":"tool_use"[^}]*"name":"([^"]+)"/g;
 const USER_TEXT = /"type":"user"[\s\S]*?"text":"([^"]+)"/g;

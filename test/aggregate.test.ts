@@ -37,44 +37,34 @@ describe('aggregate', () => {
       id: 'a',
       currentNote: 'Tasks/A.md',
       toolCalls: [
-        call({ name: 'mcp__neuro-vault-mcp__get_tag', ts: 1 }),
-        call({ name: 'mcp__neuro-vault-mcp__read_property', ts: 2 }),
-        call({ name: 'mcp__neuro-vault-mcp__read_property', ts: 3 }),
+        call({ name: 'mcp__neuro-vault__get_tag', ts: 1 }),
+        call({ name: 'mcp__neuro-vault__read_property', ts: 2 }),
+        call({ name: 'mcp__neuro-vault__read_property', ts: 3 }),
       ],
     });
     const agg = aggregate([s]);
-    expect(agg.topTools[0]!.key).toBe('mcp__neuro-vault-mcp__read_property');
+    expect(agg.topTools[0]!.key).toBe('mcp__neuro-vault__read_property');
     expect(agg.topTools[0]!.count).toBe(2);
     const seq = agg.topSequences.find(
       (b) =>
         b.sequence.length === 2 &&
-        b.sequence[0] === 'mcp__neuro-vault-mcp__get_tag' &&
-        b.sequence[1] === 'mcp__neuro-vault-mcp__read_property',
+        b.sequence[0] === 'mcp__neuro-vault__get_tag' &&
+        b.sequence[1] === 'mcp__neuro-vault__read_property',
     );
     expect(seq).toBeDefined();
     expect(seq!.count).toBe(1);
   });
 
-  it('flags unused tools from the known list', () => {
-    const s = summary({
-      id: 'a',
-      toolCalls: [call({ name: 'mcp__neuro-vault-mcp__search_notes', ts: 1 })],
-    });
-    const agg = aggregate([s]);
-    expect(agg.unusedTools).toContain('mcp__neuro-vault-mcp__find_duplicates');
-    expect(agg.unusedTools).not.toContain('mcp__neuro-vault-mcp__search_notes');
-  });
-
-  it('detects stale-path: search_notes then read_note error', () => {
+  it('detects stale-path: search_notes then read_notes error (array form)', () => {
     const s = summary({
       id: 'B',
       toolCalls: [
-        call({ name: 'mcp__neuro-vault-mcp__search_notes', ts: 1 }),
+        call({ name: 'mcp__neuro-vault__search_notes', ts: 1 }),
         call({
-          name: 'mcp__neuro-vault-mcp__read_note',
+          name: 'mcp__neuro-vault__read_notes',
           status: 'error',
           ts: 2,
-          argsSummary: '{"path":"Tasks/Old.md"}',
+          argsSummary: '{"paths":["Tasks/Old.md"]}',
         }),
       ],
     });
@@ -84,12 +74,30 @@ describe('aggregate', () => {
     expect(agg.stalePathErrors[0]!.failedPath).toBe('Tasks/Old.md');
   });
 
+  it('detects stale-path: search_notes then read_notes error (string form)', () => {
+    const s = summary({
+      id: 'C',
+      toolCalls: [
+        call({ name: 'mcp__neuro-vault__search_notes', ts: 1 }),
+        call({
+          name: 'mcp__neuro-vault__read_notes',
+          status: 'error',
+          ts: 2,
+          argsSummary: '{"paths":"Tasks/Ghost.md"}',
+        }),
+      ],
+    });
+    const agg = aggregate([s]);
+    expect(agg.stalePathErrors).toHaveLength(1);
+    expect(agg.stalePathErrors[0]!.failedPath).toBe('Tasks/Ghost.md');
+  });
+
   it('does not flag stale-path when read succeeds', () => {
     const s = summary({
       id: 'B',
       toolCalls: [
-        call({ name: 'mcp__neuro-vault-mcp__search_notes', ts: 1 }),
-        call({ name: 'mcp__neuro-vault-mcp__read_note', ts: 2 }),
+        call({ name: 'mcp__neuro-vault__search_notes', ts: 1 }),
+        call({ name: 'mcp__neuro-vault__read_notes', ts: 2 }),
       ],
     });
     expect(aggregate([s]).stalePathErrors).toHaveLength(0);

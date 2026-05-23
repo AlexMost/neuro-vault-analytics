@@ -13,14 +13,9 @@ export function formatText(report: AnalyticsReport): string {
   );
   if (report.aggregates.topTools.length > 0) {
     const top = report.aggregates.topTools
-      .map((t) => `${t.key.replace('mcp__neuro-vault-mcp__', '')} (${t.count})`)
+      .map((t) => `${t.key.replace('mcp__neuro-vault__', '')} (${t.count})`)
       .join(', ');
     lines.push(`Top tools: ${top}`);
-  }
-  if (report.aggregates.unusedTools.length > 0) {
-    lines.push(
-      `Unused tools: ${report.aggregates.unusedTools.map((t) => t.replace('mcp__neuro-vault-mcp__', '')).join(', ')}`,
-    );
   }
   if (report.aggregates.stalePathErrors.length > 0) {
     lines.push(`Stale-path errors: ${report.aggregates.stalePathErrors.length} session(s)`);

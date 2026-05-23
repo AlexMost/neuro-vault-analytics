@@ -21,14 +21,14 @@ const meta = {
 };
 
 const MAIN = [
-  '{"type":"assistant","timestamp":"2026-04-26T10:00:01.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a1","name":"mcp__neuro-vault-mcp__get_tag","input":{"tag":"#x"}}]}}',
+  '{"type":"assistant","timestamp":"2026-04-26T10:00:01.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a1","name":"mcp__neuro-vault__get_tag","input":{"tag":"#x"}}]}}',
   '{"type":"user","timestamp":"2026-04-26T10:00:02.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a1","content":"r"}]}}',
-  '{"type":"assistant","timestamp":"2026-04-26T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a2","name":"mcp__neuro-vault-mcp__read_note","input":{}}]}}',
+  '{"type":"assistant","timestamp":"2026-04-26T10:00:03.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"a2","name":"mcp__neuro-vault__read_notes","input":{}}]}}',
   '{"type":"user","timestamp":"2026-04-26T10:00:04.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"a2","content":"err","is_error":true}]}}',
 ].join('\n');
 
 const SIDE = [
-  '{"type":"assistant","timestamp":"2026-04-26T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"s1","name":"mcp__neuro-vault-mcp__search_notes","input":{}}]}}',
+  '{"type":"assistant","timestamp":"2026-04-26T10:00:05.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"s1","name":"mcp__neuro-vault__search_notes","input":{}}]}}',
   '{"type":"user","timestamp":"2026-04-26T10:00:06.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"s1","content":"r"}]}}',
 ].join('\n');
 
@@ -42,9 +42,9 @@ describe('toSessionSummary', () => {
   it('merges main + subagent tool calls in chronological order', () => {
     const s = toSessionSummary(D);
     expect(s.toolCalls.map((c) => c.name)).toEqual([
-      'mcp__neuro-vault-mcp__get_tag',
-      'mcp__neuro-vault-mcp__read_note',
-      'mcp__neuro-vault-mcp__search_notes',
+      'mcp__neuro-vault__get_tag',
+      'mcp__neuro-vault__read_notes',
+      'mcp__neuro-vault__search_notes',
     ]);
     expect(s.toolCalls[2]!.source).toBe('subagent:7');
   });

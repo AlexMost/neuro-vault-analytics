@@ -6,7 +6,7 @@ import type {
   ToolCall,
 } from './types.js';
 
-const MCP_PREFIX = 'mcp__neuro-vault-mcp__';
+const MCP_PREFIX = 'mcp__neuro-vault__';
 const ANOMALY_RESULT_BYTES = 5 * 1024;
 
 function isAnomaly(c: ToolCall): boolean {

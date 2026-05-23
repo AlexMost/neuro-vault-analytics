@@ -15,7 +15,7 @@ const FIXTURE = [
         {
           type: 'tool_use',
           id: 'tool_1',
-          name: 'mcp__neuro-vault-mcp__search_notes',
+          name: 'mcp__neuro-vault__search_notes',
           input: { query: 'vector db', limit: 5 },
         },
       ],
@@ -40,7 +40,7 @@ const FIXTURE = [
         {
           type: 'tool_use',
           id: 'tool_2',
-          name: 'mcp__neuro-vault-mcp__read_note',
+          name: 'mcp__neuro-vault__read_notes',
           input: { path: 'Notes/x.md' },
         },
       ],
@@ -72,12 +72,12 @@ describe('extractToolCalls', () => {
     const calls = extractToolCalls(FIXTURE, 'main');
     expect(calls).toHaveLength(2);
     expect(calls[0]).toMatchObject({
-      name: 'mcp__neuro-vault-mcp__search_notes',
+      name: 'mcp__neuro-vault__search_notes',
       status: 'ok',
       source: 'main',
     });
     expect(calls[1]).toMatchObject({
-      name: 'mcp__neuro-vault-mcp__read_note',
+      name: 'mcp__neuro-vault__read_notes',
       status: 'error',
       source: 'main',
     });
