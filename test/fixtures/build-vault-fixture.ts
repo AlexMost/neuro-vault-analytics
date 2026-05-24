@@ -185,5 +185,65 @@ export async function buildVaultFixture(): Promise<VaultFixture> {
     }
   }
 
+  // External project that calls the vault MCP — must surface in `buckets.projects`.
+  await addExternalProject(projectsDir, {
+    name: '-Users-x-git-catalog-ui',
+    sessions: [
+      {
+        sessionId: 'ext-session-1',
+        jsonl: [
+          '{"type":"user","timestamp":"2025-04-26T13:00:00.000Z","message":{"role":"user","content":[{"type":"text","text":"Edit the note"}]}}',
+          '{"type":"assistant","timestamp":"2025-04-26T13:00:01.000Z","message":{"role":"assistant","model":"opus","usage":{"input_tokens":5,"cache_creation_input_tokens":50,"cache_read_input_tokens":450},"content":[{"type":"tool_use","id":"x1","name":"mcp__neuro-vault__edit_note","input":{"path":"Tasks/X.md"}}]}}',
+          '{"type":"user","timestamp":"2025-04-26T13:00:02.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"x1","content":"ok"}]}}',
+        ].join('\n'),
+        mtimeMs: 1_745_700_000_000,
+      },
+    ],
+  });
+
+  // External project without any vault calls — must be filtered out.
+  await addExternalProject(projectsDir, {
+    name: '-Users-x-git-unrelated',
+    sessions: [
+      {
+        sessionId: 'unrelated-1',
+        jsonl: [
+          '{"type":"assistant","timestamp":"2025-04-26T14:00:00.000Z","message":{"role":"assistant","content":[{"type":"tool_use","id":"u1","name":"Bash","input":{"command":"ls"}}]}}',
+          '{"type":"user","timestamp":"2025-04-26T14:00:01.000Z","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"u1","content":"file.txt"}]}}',
+        ].join('\n'),
+        mtimeMs: 1_745_700_000_000,
+      },
+    ],
+  });
+
   return { root, vaultDir, projectsDir };
+}
+
+export interface ExternalSessionSpec {
+  sessionId: string;
+  jsonl: string;
+  /** ms — used to set both atime and mtime on the JSONL file. */
+  mtimeMs: number;
+  subagentLogs?: Record<string, string>;
+}
+
+export async function addExternalProject(
+  projectsDir: string,
+  spec: { name: string; sessions: ExternalSessionSpec[] },
+): Promise<void> {
+  const projectRoot = path.join(projectsDir, spec.name);
+  await fs.mkdir(projectRoot, { recursive: true });
+  for (const session of spec.sessions) {
+    const jsonlPath = path.join(projectRoot, `${session.sessionId}.jsonl`);
+    await fs.writeFile(jsonlPath, session.jsonl);
+    const when = new Date(session.mtimeMs);
+    await fs.utimes(jsonlPath, when, when);
+    if (session.subagentLogs) {
+      const dir = path.join(projectRoot, session.sessionId, 'subagents');
+      await fs.mkdir(dir, { recursive: true });
+      for (const [name, body] of Object.entries(session.subagentLogs)) {
+        await fs.writeFile(path.join(dir, name), body);
+      }
+    }
+  }
 }

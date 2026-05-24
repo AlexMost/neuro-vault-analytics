@@ -2,7 +2,7 @@
 
 // src/cli.ts
 import os from "os";
-import path3 from "path";
+import path5 from "path";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
@@ -32,24 +32,45 @@ function resolveVault(args) {
 function encodeVaultPath(absVaultPath) {
   return absVaultPath.replace(/\//g, "-");
 }
+function decodeProjectPath(encoded) {
+  return encoded.replace(/-/g, "/");
+}
 
 // src/format.ts
 function formatJson(report) {
   return JSON.stringify(report) + "\n";
 }
+function shortToolName(name) {
+  return name.replace("mcp__neuro-vault__", "");
+}
+function bucketLine(label, b) {
+  const top = b.topTools.slice(0, 3).map((t) => `${shortToolName(t.key)} (${t.count})`).join(", ");
+  const avg = b.avgToolCallsPerSession.toFixed(1);
+  const tail = top ? `  top: ${top}` : "";
+  return `${label.padEnd(8)} sessions=${b.sessionsTotal}  tool_calls=${b.totalToolCalls}  avg=${avg}${tail}`;
+}
 function formatText(report) {
   const lines = [];
   lines.push(`Usage analytics \u2014 period ${report.period.label}`);
-  lines.push(`Sessions: ${report.stats.sessionsVault} / ${report.stats.sessionsTotal} touch vault`);
-  lines.push(
-    `Tool calls: ${report.stats.totalToolCalls} (avg ${report.stats.avgToolCallsPerSession.toFixed(1)} / session)`
-  );
-  if (report.aggregates.topTools.length > 0) {
-    const top = report.aggregates.topTools.map((t) => `${t.key.replace("mcp__neuro-vault__", "")} (${t.count})`).join(", ");
-    lines.push(`Top tools: ${top}`);
+  lines.push(bucketLine("vault", report.buckets.vault));
+  lines.push(bucketLine("projects", report.buckets.projects));
+  lines.push(bucketLine("total", report.buckets.total));
+  if (report.perProject.length > 0) {
+    lines.push("");
+    lines.push("Per-project breakdown:");
+    for (const p of report.perProject) {
+      const top = p.topTools.map((t) => `${shortToolName(t.key)} (${t.count})`).join(", ");
+      const uniq = p.uniqueTools.length ? `  unique: ${p.uniqueTools.map(shortToolName).join(", ")}` : "";
+      lines.push(`  ${p.project}  sessions=${p.sessionsTotal}  ${top}${uniq}`);
+    }
   }
-  if (report.aggregates.stalePathErrors.length > 0) {
-    lines.push(`Stale-path errors: ${report.aggregates.stalePathErrors.length} session(s)`);
+  if (report.unusedTools.length > 0) {
+    lines.push("");
+    lines.push(`Unused tools (catalog): ${report.unusedTools.map(shortToolName).join(", ")}`);
+  }
+  const stale = report.buckets.total.stalePathErrors.length;
+  if (stale > 0) {
+    lines.push(`Stale-path errors: ${stale} session(s)`);
   }
   if (report.warnings.length > 0) {
     lines.push("");
@@ -74,6 +95,29 @@ function parsePeriod(input, nowMs) {
   const span = amount * UNIT_MS[unit];
   return { startMs: nowMs - span, endMs: nowMs, label: input };
 }
+
+// src/run.ts
+import path4 from "path";
+
+// src/types.ts
+var KNOWN_NEURO_VAULT_TOOLS = [
+  "mcp__neuro-vault__create_note",
+  "mcp__neuro-vault__edit_note",
+  "mcp__neuro-vault__find_duplicates",
+  "mcp__neuro-vault__get_note_links",
+  "mcp__neuro-vault__get_similar_notes",
+  "mcp__neuro-vault__get_stats",
+  "mcp__neuro-vault__get_vault_overview",
+  "mcp__neuro-vault__list_properties",
+  "mcp__neuro-vault__list_tags",
+  "mcp__neuro-vault__query_notes",
+  "mcp__neuro-vault__read_daily",
+  "mcp__neuro-vault__read_notes",
+  "mcp__neuro-vault__read_property",
+  "mcp__neuro-vault__remove_property",
+  "mcp__neuro-vault__search_notes",
+  "mcp__neuro-vault__set_property"
+];
 
 // src/aggregate.ts
 var SEARCH = "mcp__neuro-vault__search_notes";
@@ -111,11 +155,13 @@ function aggregate(sessions) {
   const cacheHits = [];
   const subagentBudgets = [];
   let deadEndCount = 0;
+  let totalToolCalls = 0;
   for (const s of sessions) {
     if (s.outcome === "dead_end") deadEndCount++;
     cacheHits.push(s.cacheHitRatio);
     subagentBudgets.push(...s.subagent.toolCallsPerAgent);
     if (s.currentNote) noteCounts.set(s.currentNote, (noteCounts.get(s.currentNote) ?? 0) + 1);
+    totalToolCalls += s.toolCalls.length;
     for (const call of s.toolCalls) {
       toolCounts.set(call.name, (toolCounts.get(call.name) ?? 0) + 1);
       if (call.resultSize !== null) {
@@ -152,6 +198,10 @@ function aggregate(sessions) {
   const largestResultTools = [...resultSizeAcc.entries()].map(([key, { sum, n }]) => ({ key, avgSizeBytes: Math.round(sum / n) })).sort((a, b) => b.avgSizeBytes - a.avgSizeBytes).slice(0, 10);
   const topSequences = [...seqCounts.values()].sort((a, b) => b.count - a.count || a.sequence.join(">").localeCompare(b.sequence.join(">"))).slice(0, 10).map(({ sequence, count, sessionIds }) => ({ sequence, count, sessionIds: [...sessionIds] }));
   return {
+    sessionsTotal: sessions.length,
+    sessionsVault: sessions.length,
+    totalToolCalls,
+    avgToolCallsPerSession: sessions.length === 0 ? 0 : totalToolCalls / sessions.length,
     topTools: topByCount(toolCounts, 10),
     topSequences,
     largestResultTools,
@@ -160,7 +210,6 @@ function aggregate(sessions) {
     cacheHitDistribution: {
       p50: percentile(sortedCacheHits, 50),
       p90: percentile(sortedCacheHits, 90),
-      // NOTE: plan had a bug here using sortedBudgets — fixed to sortedCacheHits
       mean: cacheHits.length ? cacheHits.reduce((a, b) => a + b, 0) / cacheHits.length : 0
     },
     subagentBudget: {
@@ -170,6 +219,13 @@ function aggregate(sessions) {
     },
     deadEndCount
   };
+}
+function computeUnusedTools(sessions) {
+  const seen = /* @__PURE__ */ new Set();
+  for (const s of sessions) {
+    for (const c of s.toolCalls) seen.add(c.name);
+  }
+  return KNOWN_NEURO_VAULT_TOOLS.filter((t) => !seen.has(t));
 }
 
 // src/discover.ts
@@ -235,6 +291,123 @@ async function discoverSessions(args) {
     }
     const subagentLogs = await listSubagents(path2.join(projectsRoot, meta.sessionId, "subagents"));
     discovered.push({ meta, mainLog, subagentLogs });
+  }
+  return { discovered, warnings };
+}
+
+// src/discover-external.ts
+import fs3 from "fs/promises";
+import path3 from "path";
+
+// src/filter.ts
+var NEURO_VAULT_PREFIX = "mcp__neuro-vault__";
+var WIKI_LINK = /\[\[[^\]]+\]\]/;
+var TOOL_NAME = /"type":"tool_use"[^}]*"name":"([^"]+)"/g;
+var USER_TEXT = /"type":"user"[\s\S]*?"text":"([^"]+)"/g;
+function logHasNeuroVaultTool(jsonl) {
+  TOOL_NAME.lastIndex = 0;
+  let match;
+  while (match = TOOL_NAME.exec(jsonl)) {
+    if (match[1].startsWith(NEURO_VAULT_PREFIX)) return true;
+  }
+  return false;
+}
+function logHasWikiLink(jsonl) {
+  USER_TEXT.lastIndex = 0;
+  let match;
+  while (match = USER_TEXT.exec(jsonl)) {
+    if (WIKI_LINK.test(match[1])) return true;
+  }
+  return false;
+}
+function isVaultRelevant(d) {
+  if (d.meta.currentNote && d.meta.currentNote.trim().length > 0) return true;
+  if (logHasNeuroVaultTool(d.mainLog)) return true;
+  if (d.subagentLogs.some((s) => logHasNeuroVaultTool(s.jsonl))) return true;
+  if (logHasWikiLink(d.mainLog)) return true;
+  return false;
+}
+
+// src/discover-external.ts
+function firstLineTimestampMs(jsonl) {
+  for (const raw of jsonl.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    try {
+      const obj = JSON.parse(line);
+      if (typeof obj.timestamp === "string") {
+        const ms = Date.parse(obj.timestamp);
+        return Number.isFinite(ms) ? ms : null;
+      }
+    } catch {
+    }
+    return null;
+  }
+  return null;
+}
+async function listJsonlFiles(dir) {
+  let entries;
+  try {
+    entries = await fs3.readdir(dir);
+  } catch (err) {
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
+  return entries.filter((e) => e.endsWith(".jsonl"));
+}
+async function discoverExternalSessions(args) {
+  let entries;
+  try {
+    entries = await fs3.readdir(args.projectsDir);
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return {
+        discovered: [],
+        warnings: [`No projects directory at ${args.projectsDir}`]
+      };
+    }
+    throw err;
+  }
+  const discovered = [];
+  const warnings = [];
+  for (const project of entries) {
+    if (project === args.vaultProject) continue;
+    const projectPath = path3.join(args.projectsDir, project);
+    let stat;
+    try {
+      stat = await fs3.stat(projectPath);
+    } catch {
+      continue;
+    }
+    if (!stat.isDirectory()) continue;
+    const jsonlFiles = await listJsonlFiles(projectPath);
+    for (const file of jsonlFiles) {
+      const sessionId = file.slice(0, -".jsonl".length);
+      const jsonlPath = path3.join(projectPath, file);
+      let fileStat;
+      try {
+        fileStat = await fs3.stat(jsonlPath);
+      } catch {
+        continue;
+      }
+      const mtimeMs = fileStat.mtimeMs;
+      if (mtimeMs < args.period.startMs) continue;
+      const mainLog = await fs3.readFile(jsonlPath, "utf8");
+      const subagentLogs = await listSubagents(path3.join(projectPath, sessionId, "subagents"));
+      if (!logHasNeuroVaultTool(mainLog) && !subagentLogs.some((s) => logHasNeuroVaultTool(s.jsonl))) {
+        continue;
+      }
+      const firstTs = firstLineTimestampMs(mainLog);
+      const createdAt = firstTs ?? mtimeMs;
+      if (createdAt < args.period.startMs || createdAt > args.period.endMs) continue;
+      discovered.push({
+        sessionId,
+        project,
+        mtimeMs,
+        mainLog,
+        subagentLogs
+      });
+    }
   }
   return { discovered, warnings };
 }
@@ -354,33 +527,141 @@ function toSessionSummary(d, opts = {}) {
   };
 }
 
-// src/filter.ts
-var NEURO_VAULT_PREFIX = "mcp__neuro-vault__";
-var WIKI_LINK = /\[\[[^\]]+\]\]/;
-var TOOL_NAME = /"type":"tool_use"[^}]*"name":"([^"]+)"/g;
-var USER_TEXT = /"type":"user"[\s\S]*?"text":"([^"]+)"/g;
-function logHasNeuroVaultTool(jsonl) {
-  TOOL_NAME.lastIndex = 0;
-  let match;
-  while (match = TOOL_NAME.exec(jsonl)) {
-    if (match[1].startsWith(NEURO_VAULT_PREFIX)) return true;
+// src/extract-external.ts
+var TITLE_CAP = 80;
+function deriveFromJsonl(jsonl, fallbackMs) {
+  let title = null;
+  let firstTs = null;
+  let lastTs = null;
+  let lastModel = null;
+  let cacheRead = 0;
+  let cacheCreation = 0;
+  let input = 0;
+  for (const raw of jsonl.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    let obj;
+    try {
+      obj = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (typeof obj.timestamp === "string") {
+      const ms = Date.parse(obj.timestamp);
+      if (Number.isFinite(ms)) {
+        if (firstTs === null) firstTs = ms;
+        lastTs = ms;
+      }
+    }
+    if (obj.type === "user" && title === null) {
+      const blocks = obj.message?.content;
+      if (typeof blocks === "string") {
+        title = blocks;
+      } else if (Array.isArray(blocks)) {
+        for (const block of blocks) {
+          if (block.type === "text" && typeof block.text === "string") {
+            title = block.text;
+            break;
+          }
+        }
+      }
+    }
+    if (obj.type === "assistant") {
+      if (typeof obj.message?.model === "string") {
+        lastModel = obj.message.model;
+      }
+      const usage = obj.message?.usage;
+      if (usage) {
+        cacheRead += usage.cache_read_input_tokens ?? 0;
+        cacheCreation += usage.cache_creation_input_tokens ?? 0;
+        input += usage.input_tokens ?? 0;
+      }
+    }
   }
-  return false;
+  const denom = cacheRead + cacheCreation + input;
+  const cleanedTitle = title ? title.replace(/\s+/g, " ").trim().slice(0, TITLE_CAP) || "(no title)" : "(no title)";
+  return {
+    title: cleanedTitle,
+    createdAt: firstTs ?? fallbackMs,
+    updatedAt: lastTs ?? fallbackMs,
+    model: lastModel ?? "unknown",
+    cacheHitRatio: denom === 0 ? 0 : cacheRead / denom
+  };
 }
-function logHasWikiLink(jsonl) {
-  USER_TEXT.lastIndex = 0;
-  let match;
-  while (match = USER_TEXT.exec(jsonl)) {
-    if (WIKI_LINK.test(match[1])) return true;
+function toSessionSummaryFromExternal(d) {
+  const main2 = extractToolCalls(d.mainLog, "main");
+  const perAgent = d.subagentLogs.map(
+    (s) => extractToolCalls(s.jsonl, `subagent:${s.agentId}`)
+  );
+  const all = [...main2, ...perAgent.flat()].sort((a, b) => a.ts - b.ts);
+  const derived = deriveFromJsonl(d.mainLog, d.mtimeMs);
+  return {
+    id: d.sessionId,
+    title: derived.title,
+    createdAt: derived.createdAt,
+    updatedAt: derived.updatedAt,
+    durationMs: Math.max(0, derived.updatedAt - derived.createdAt),
+    model: derived.model,
+    contextPercentage: 0,
+    cacheHitRatio: derived.cacheHitRatio,
+    currentNote: null,
+    toolCalls: all,
+    subagent: subagentStats(perAgent),
+    outcome: lastMainStatus(main2)
+  };
+}
+
+// src/per-project.ts
+var VAULT_MARKER = "__vault__";
+function topNTools(sessions, n) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const s of sessions) {
+    for (const c of s.toolCalls) {
+      counts.set(c.name, (counts.get(c.name) ?? 0) + 1);
+    }
   }
-  return false;
+  return [...counts.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key)).slice(0, n);
 }
-function isVaultRelevant(d) {
-  if (d.meta.currentNote && d.meta.currentNote.trim().length > 0) return true;
-  if (logHasNeuroVaultTool(d.mainLog)) return true;
-  if (d.subagentLogs.some((s) => logHasNeuroVaultTool(s.jsonl))) return true;
-  if (logHasWikiLink(d.mainLog)) return true;
-  return false;
+function buildPerProject(vault, external) {
+  const byProject = /* @__PURE__ */ new Map();
+  for (const e of external) {
+    const list = byProject.get(e.project);
+    if (list) list.push(e.summary);
+    else byProject.set(e.project, [e.summary]);
+  }
+  const toolToProjects = /* @__PURE__ */ new Map();
+  const addToolUses = (sessions, marker) => {
+    for (const s of sessions) {
+      for (const c of s.toolCalls) {
+        let set = toolToProjects.get(c.name);
+        if (!set) {
+          set = /* @__PURE__ */ new Set();
+          toolToProjects.set(c.name, set);
+        }
+        set.add(marker);
+      }
+    }
+  };
+  addToolUses(vault, VAULT_MARKER);
+  for (const [project, sessions] of byProject) addToolUses(sessions, project);
+  const out = [];
+  for (const [project, sessions] of byProject) {
+    const uniqueTools = [];
+    for (const [tool, projects] of toolToProjects) {
+      if (projects.size === 1 && projects.has(project)) uniqueTools.push(tool);
+    }
+    uniqueTools.sort();
+    out.push({
+      project,
+      decodedPath: decodeProjectPath(project),
+      sessionsTotal: sessions.length,
+      sessionsVault: sessions.length,
+      topTools: topNTools(sessions, 5),
+      uniqueTools
+    });
+  }
+  out.sort((a, b) => b.sessionsVault - a.sessionsVault || a.project.localeCompare(b.project));
+  return out;
 }
 
 // src/sample.ts
@@ -410,7 +691,7 @@ function topNGramsOf(calls, limit) {
   }
   return [...counts.values()].sort((a, b) => b.count - a.count || a.sequence.join(">").localeCompare(b.sequence.join(">"))).slice(0, limit).map(({ sequence, count }) => ({ sequence, count, sessionIds: [] }));
 }
-function projectSession(s) {
+function projectSession(s, tag) {
   const mcpCalls = s.toolCalls.filter((c) => c.name.startsWith(MCP_PREFIX));
   const anomalies = s.toolCalls.filter(isAnomaly);
   const nonMcpClean = s.toolCalls.filter(
@@ -437,7 +718,9 @@ function projectSession(s) {
         topTools: topToolsOf(nonMcpClean, 5),
         nGrams: topNGramsOf(nonMcpClean, 3)
       }
-    }
+    },
+    bucket: tag.bucket,
+    project: tag.project
   };
 }
 function hourBucket(ts) {
@@ -459,7 +742,7 @@ function quartilesOf(values) {
 function costOf(p) {
   return Buffer.byteLength(JSON.stringify(p), "utf8");
 }
-function sampleSessionsWithMeta(sessions, opts) {
+function sampleSessionsWithMeta(sessions, opts, tag) {
   if (sessions.length === 0) return { samples: [], budgetUnderflow: false };
   const quartiles = quartilesOf(sessions.map((s) => s.toolCalls.length));
   const strata = /* @__PURE__ */ new Map();
@@ -477,7 +760,7 @@ function sampleSessionsWithMeta(sessions, opts) {
     let advanced = false;
     for (const q of queues) {
       if (q.length === 0) continue;
-      const projected = projectSession(q.shift());
+      const projected = projectSession(q.shift(), tag);
       const cost = costOf(projected);
       if (out.length === 0) {
         out.push(projected);
@@ -497,36 +780,74 @@ function sampleSessionsWithMeta(sessions, opts) {
   }
   return { samples: out, budgetUnderflow };
 }
+function sampleBalanced(vault, external, opts) {
+  const half = Math.floor(opts.byteBudget / 2);
+  const vaultResult = sampleSessionsWithMeta(vault, { byteBudget: half }, {
+    bucket: "vault",
+    project: null
+  });
+  const projectByRef = /* @__PURE__ */ new Map();
+  for (const e of external) projectByRef.set(e.summary, e.project);
+  const projectsResult = sampleSessionsWithMeta(
+    external.map((e) => e.summary),
+    { byteBudget: opts.byteBudget - half },
+    { bucket: "projects", project: "" }
+  );
+  for (const sample of projectsResult.samples) {
+    const owner = external.find((e) => e.summary.id === sample.id);
+    sample.project = owner ? owner.project : "";
+  }
+  return {
+    samples: [...vaultResult.samples, ...projectsResult.samples],
+    budgetUnderflow: vaultResult.budgetUnderflow || projectsResult.budgetUnderflow
+  };
+}
 
 // src/run.ts
 async function run(args) {
-  const { discovered, warnings } = await discoverSessions({
-    vaultDir: args.vaultDir,
-    projectsDir: args.projectsDir,
-    period: args.period
+  const vaultProject = encodeVaultPath(path4.resolve(args.vaultDir));
+  const [{ discovered: vaultDiscovered, warnings: vaultWarnings }, externalResult] = await Promise.all([
+    discoverSessions({
+      vaultDir: args.vaultDir,
+      projectsDir: args.projectsDir,
+      period: args.period
+    }),
+    discoverExternalSessions({
+      projectsDir: args.projectsDir,
+      vaultProject,
+      period: args.period
+    })
+  ]);
+  const vaultSummaries = vaultDiscovered.filter(isVaultRelevant).map((d) => toSessionSummary(d, { vaultDir: args.vaultDir }));
+  const externalSessions = externalResult.discovered.map((d) => ({
+    project: d.project,
+    summary: toSessionSummaryFromExternal(d)
+  }));
+  const externalSummaries = externalSessions.map((e) => e.summary);
+  const allSummaries = [...vaultSummaries, ...externalSummaries];
+  const buckets = {
+    vault: aggregate(vaultSummaries),
+    projects: aggregate(externalSummaries),
+    total: aggregate(allSummaries)
+  };
+  const perProject = buildPerProject(vaultSummaries, externalSessions);
+  const unusedTools = computeUnusedTools(allSummaries);
+  const sampleResult = sampleBalanced(vaultSummaries, externalSessions, {
+    byteBudget: args.byteBudget
   });
-  const vaultDiscovered = discovered.filter(isVaultRelevant);
-  const summaries = vaultDiscovered.map((d) => toSessionSummary(d, { vaultDir: args.vaultDir }));
-  const totalToolCalls = summaries.reduce((sum, s) => sum + s.toolCalls.length, 0);
-  const aggregates = aggregate(summaries);
-  const sampleResult = sampleSessionsWithMeta(summaries, { byteBudget: args.byteBudget });
-  const allWarnings = [...warnings];
+  const warnings = [...vaultWarnings, ...externalResult.warnings];
   if (sampleResult.budgetUnderflow) {
-    allWarnings.push(
-      `sample byte budget too small; emitted N=1 anyway (cost > ${args.byteBudget})`
+    warnings.push(
+      `sample byte budget too small; one or both bucket pools emitted N=1 anyway (budget ${args.byteBudget})`
     );
   }
   return {
     period: args.period,
-    stats: {
-      sessionsTotal: discovered.length,
-      sessionsVault: summaries.length,
-      totalToolCalls,
-      avgToolCallsPerSession: summaries.length === 0 ? 0 : totalToolCalls / summaries.length
-    },
-    aggregates,
+    buckets,
+    perProject,
+    unusedTools,
     samples: sampleResult.samples,
-    warnings: allWarnings
+    warnings
   };
 }
 async function runDetail(args) {
@@ -577,7 +898,7 @@ async function main() {
     describe: "Output format (period mode only; detail mode is always JSON)."
   }).option("projects-dir", {
     type: "string",
-    default: path3.join(os.homedir(), ".claude", "projects"),
+    default: path5.join(os.homedir(), ".claude", "projects"),
     describe: "Root of the SDK projects store (override for testing)."
   }).check((args) => {
     if (!args.period && !args.detail) {

@@ -37,7 +37,13 @@ describe('nv-analytics CLI smoke', () => {
     );
     const report = JSON.parse(stdout);
     expect(report.period.label).toBe('99999d');
-    expect(report.stats.sessionsVault).toBeGreaterThan(0);
+    expect(report.buckets.vault.sessionsTotal).toBeGreaterThan(0);
+    expect(report.buckets.projects.sessionsTotal).toBeGreaterThan(0);
+    expect(report.buckets.total.sessionsTotal).toBe(
+      report.buckets.vault.sessionsTotal + report.buckets.projects.sessionsTotal,
+    );
+    expect(report.perProject.length).toBeGreaterThan(0);
+    expect(report.perProject[0].project).toBe('-Users-x-git-catalog-ui');
     expect(Array.isArray(report.warnings)).toBe(true);
   }, 20_000);
 

@@ -21,36 +21,54 @@ node ${CLAUDE_PLUGIN_ROOT}/dist/cli.js --period <PERIOD> --format json
 
 Where `<PERIOD>` is the argument the user supplied (default `7d` if they did not).
 
-Capture the stdout into a local variable. The output is an `AnalyticsReport` JSON:
+Capture the stdout into a local variable. The output is an `AnalyticsReport` JSON
+with three parallel buckets (vault / projects / total) and a per-project breakdown:
 
 ```ts
 type AnalyticsReport = {
   period: { startMs: number; endMs: number; label: string };
-  stats: {
+  buckets: {
+    vault: BucketStats; // sessions started from inside the vault directory
+    projects: BucketStats; // sessions from external repos that called the vault MCP
+    total: BucketStats; // re-aggregated over the union
+  };
+  perProject: {
+    project: string;
+    decodedPath: string;
     sessionsTotal: number;
     sessionsVault: number;
-    totalToolCalls: number;
-    avgToolCallsPerSession: number;
-  };
-  aggregates: {
     topTools: { key: string; count: number }[];
-    topSequences: { sequence: string[]; count: number; sessionIds: string[] }[];
-    largestResultTools: { key: string; avgSizeBytes: number }[];
-    stalePathErrors: {
-      sessionId: string;
-      searchToolCallTs: number;
-      readToolCallTs: number;
-      failedPath: string | null;
-    }[];
-    currentNoteAnchors: { key: string; count: number }[];
-    cacheHitDistribution: { p50: number; p90: number; mean: number };
-    subagentBudget: { mean: number; p95: number; max: number };
-    deadEndCount: number;
-  };
-  samples: SessionSummary[];
+    uniqueTools: string[];
+  }[];
+  unusedTools: string[];
+  samples: (SampledSession & { bucket: 'vault' | 'projects'; project: string | null })[];
   warnings: string[];
 };
+type BucketStats = {
+  sessionsTotal: number;
+  sessionsVault: number;
+  totalToolCalls: number;
+  avgToolCallsPerSession: number;
+  topTools: { key: string; count: number }[];
+  topSequences: { sequence: string[]; count: number; sessionIds: string[] }[];
+  largestResultTools: { key: string; avgSizeBytes: number }[];
+  stalePathErrors: {
+    sessionId: string;
+    searchToolCallTs: number;
+    readToolCallTs: number;
+    failedPath: string | null;
+  }[];
+  currentNoteAnchors: { key: string; count: number }[];
+  cacheHitDistribution: { p50: number; p90: number; mean: number };
+  subagentBudget: { mean: number; p95: number; max: number };
+  deadEndCount: number;
+};
 ```
+
+The CLI scans every directory under `~/.claude/projects/` by default; the
+`buckets.vault` block is built from Claudian session metadata, while
+`buckets.projects` is built from JSONL alone (no `currentNote`, no
+context-window snapshot — see `docs/architecture/claudian-records.md`).
 
 If the CLI fails (non-zero exit), surface its stderr to the user verbatim and stop.
 
@@ -77,8 +95,9 @@ type: review
 created: <YYYY-MM-DD of period.endMs>
 period_start: <YYYY-MM-DD of period.startMs>
 period_end: <YYYY-MM-DD of period.endMs>
-sessions_total: <stats.sessionsTotal>
-sessions_vault: <stats.sessionsVault>
+sessions_vault: <buckets.vault.sessionsTotal>
+sessions_projects: <buckets.projects.sessionsTotal>
+sessions_total: <buckets.total.sessionsTotal>
 tags: [analytics, neuro-vault]
 archived: false
 ---
@@ -88,7 +107,7 @@ archived: false
 
 ## Empty period
 
-If `stats.sessionsVault === 0`, still write the note. TL;DR: "Sessions touching the vault: 0. No patterns observed." This is a valid and intentional result.
+If `buckets.total.sessionsTotal === 0`, still write the note. TL;DR: "Sessions touching the vault: 0. No patterns observed." This is a valid and intentional result.
 
 ## Notes
 

@@ -5,7 +5,7 @@ const WIKI_LINK = /\[\[[^\]]+\]\]/;
 const TOOL_NAME = /"type":"tool_use"[^}]*"name":"([^"]+)"/g;
 const USER_TEXT = /"type":"user"[\s\S]*?"text":"([^"]+)"/g;
 
-function logHasNeuroVaultTool(jsonl: string): boolean {
+export function logHasNeuroVaultTool(jsonl: string): boolean {
   TOOL_NAME.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = TOOL_NAME.exec(jsonl))) {

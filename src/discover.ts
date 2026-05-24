@@ -36,7 +36,7 @@ async function readFileOrEmpty(filePath: string): Promise<string | null> {
   }
 }
 
-async function listSubagents(dir: string): Promise<DiscoveredSubagent[]> {
+export async function listSubagents(dir: string): Promise<DiscoveredSubagent[]> {
   let entries: string[];
   try {
     entries = await fs.readdir(dir);

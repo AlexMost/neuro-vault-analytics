@@ -1,6 +1,6 @@
 // test/aggregate.test.ts
 import { describe, expect, it } from 'vitest';
-import { aggregate } from '../src/aggregate.js';
+import { aggregate, computeUnusedTools } from '../src/aggregate.js';
 import type { SessionSummary, ToolCall } from '../src/types.js';
 
 function call(over: Partial<ToolCall> & Pick<ToolCall, 'name' | 'ts'>): ToolCall {
@@ -134,5 +134,65 @@ describe('aggregate', () => {
     const agg = aggregate([s1, s2]);
     expect(agg.subagentBudget.max).toBe(10);
     expect(agg.subagentBudget.mean).toBeCloseTo(6, 5);
+  });
+
+  it('exposes sessionsTotal and totalToolCalls on the bucket', () => {
+    const s = summary({
+      id: 'a',
+      toolCalls: [
+        call({ name: 'mcp__neuro-vault__search_notes', ts: 1 }),
+        call({ name: 'mcp__neuro-vault__read_notes', ts: 2 }),
+      ],
+    });
+    const agg = aggregate([s]);
+    expect(agg.sessionsTotal).toBe(1);
+    expect(agg.totalToolCalls).toBe(2);
+    expect(agg.avgToolCallsPerSession).toBeCloseTo(2, 5);
+  });
+
+  it('returns zeros for an empty pool without dividing by zero', () => {
+    const agg = aggregate([]);
+    expect(agg.sessionsTotal).toBe(0);
+    expect(agg.totalToolCalls).toBe(0);
+    expect(agg.avgToolCallsPerSession).toBe(0);
+    expect(agg.cacheHitDistribution.mean).toBe(0);
+    expect(agg.subagentBudget.mean).toBe(0);
+  });
+});
+
+describe('computeUnusedTools', () => {
+  it('returns known tools missing from the pool', () => {
+    const s = summary({
+      id: 'a',
+      toolCalls: [call({ name: 'mcp__neuro-vault__search_notes', ts: 1 })],
+    });
+    const unused = computeUnusedTools([s]);
+    expect(unused).toContain('mcp__neuro-vault__find_duplicates');
+    expect(unused).not.toContain('mcp__neuro-vault__search_notes');
+  });
+
+  it('returns an empty list when every known tool is exercised', () => {
+    const KNOWN = [
+      'mcp__neuro-vault__create_note',
+      'mcp__neuro-vault__edit_note',
+      'mcp__neuro-vault__find_duplicates',
+      'mcp__neuro-vault__get_note_links',
+      'mcp__neuro-vault__get_similar_notes',
+      'mcp__neuro-vault__get_stats',
+      'mcp__neuro-vault__get_vault_overview',
+      'mcp__neuro-vault__list_properties',
+      'mcp__neuro-vault__list_tags',
+      'mcp__neuro-vault__query_notes',
+      'mcp__neuro-vault__read_daily',
+      'mcp__neuro-vault__read_notes',
+      'mcp__neuro-vault__read_property',
+      'mcp__neuro-vault__remove_property',
+      'mcp__neuro-vault__search_notes',
+      'mcp__neuro-vault__set_property',
+    ];
+    const sessions: SessionSummary[] = KNOWN.map((name, i) =>
+      summary({ id: `s${i}`, toolCalls: [call({ name, ts: i })] }),
+    );
+    expect(computeUnusedTools(sessions)).toEqual([]);
   });
 });
