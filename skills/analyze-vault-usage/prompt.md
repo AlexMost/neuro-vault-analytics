@@ -1,10 +1,17 @@
 # /analyze-vault-usage critique prompt
 
-You are reviewing one week of Claude Code usage in a vault, based on a deterministic JSON report. Your job is to produce one Markdown file body — no preamble, no commentary outside the file.
+You are reviewing one week of Claude Code usage against an Obsidian vault, based on a deterministic JSON report. Your job is to produce one Markdown file body — no preamble, no commentary outside the file.
+
+The report covers **two pools**:
+
+- **Vault** — sessions started from inside the vault directory (Claudian conversations).
+- **Projects** — sessions started from external repositories that nonetheless called the neuro-vault MCP server.
+
+Plus a **total** that re-aggregates the union of both pools, and a **per-project breakdown** of the projects pool.
 
 ## Inputs
 
-`AnalyticsReport` (key fields used below: `period`, `stats`, `aggregates`, `samples`):
+`AnalyticsReport` (key fields: `period`, `buckets.{vault,projects,total}`, `perProject`, `unusedTools`, `samples`):
 
 ```json
 <<REPORT_JSON>>
@@ -19,28 +26,52 @@ A single Markdown body using exactly this structure:
 
 ## TL;DR
 
-2-3 sentences. The most important takeaway, not a recap of numbers.
+2-3 sentences. The most important takeaway, not a recap of numbers. If the contrast
+between vault and projects buckets is interesting (e.g. a tool dominant in projects
+but absent in vault, or vice versa), call it out.
 
-## Numbers
+## Numbers — side by side
 
-| Metric                     | Value                                                                                            |
-| -------------------------- | ------------------------------------------------------------------------------------------------ |
-| Sessions touching vault    | <sessionsVault> / <sessionsTotal>                                                                |
-| Total tool calls           | <totalToolCalls>                                                                                 |
-| Avg tool calls per session | <avgToolCallsPerSession.toFixed(1)>                                                              |
-| Top tools                  | <comma-joined top 5 from aggregates.topTools, names without the `mcp__neuro-vault__` prefix>     |
-| Stale-path errors          | <aggregates.stalePathErrors.length>                                                              |
-| Dead ends                  | <aggregates.deadEndCount>                                                                        |
+| Metric                | Vault | Projects | Total |
+| --------------------- | ----- | -------- | ----- |
+| Sessions              |       |          |       |
+| Tool calls            |       |          |       |
+| Avg per session       |       |          |       |
+| Top tools             |       |          |       |
+| Stale-path errors     |       |          |       |
+| Dead ends             |       |          |       |
+
+For Top tools cells: comma-joined top 5 of that bucket's `topTools`, names stripped
+of the `mcp__neuro-vault__` prefix.
+
+Below the table on its own line:
+`Unused tools (catalog): <comma-joined unusedTools, names without prefix; "none" if empty>`.
+
+## Per-project breakdown
+
+Emit only if `perProject` is non-empty.
+
+| Project                                | Sessions | Top tools          | Unique tools         |
+| -------------------------------------- | -------- | ------------------ | -------------------- |
+| <project encoded name> (<decodedPath>) |          |                    | "none" if empty      |
 
 ## Patterns observed
 
 ### High-value patterns
 
-For every entry in `aggregates.topSequences` whose `count >= 2`, decide if it suggests something. Mention only the ones that do, with reasoning. Cite session ids from `sessionIds` so the user can verify.
+Walk `buckets.vault.topSequences`, `buckets.projects.topSequences`, and
+`buckets.total.topSequences`. For each entry with `count >= 2`, decide if it
+suggests something. Mention only entries that do, and **name the bucket** the
+pattern lives in. Example: "In `projects`: edit_note → edit_note ×4 (sessions: …)
+— agent does serial edits where a batch could land." Cite session ids so the
+user can verify.
 
 ### Dead ends
 
-Walk `samples` and identify sessions where the agent retried the same tool or finished with `outcome: dead_end`. Quote the symptom briefly.
+Walk `samples` and identify sessions where `outcome === 'dead_end'` or the
+agent retried the same tool. Quote the symptom briefly. Note the bucket — a
+dead end in `projects` (no Claudian record, less recoverable context) often
+matters more than one in `vault`.
 
 ## Suggestions
 
@@ -78,7 +109,7 @@ The next three rules tell **you** how to populate the `## Suggestions` section a
 
 ### MCP features
 
-Things the neuro-vault MCP server should expose or change. The N+1 read pattern is a flag for a `query` tool; large-result tools are flags for projection.
+Things the neuro-vault MCP server should expose or change. The N+1 read pattern is a flag for a `query` tool; large-result tools are flags for projection. **If a tool sits in `unusedTools` AND has zero `perProject` mentions across the period window, it is a removal candidate** — say so under the premature-drop guard rules below.
 
 ### Vault structure
 
@@ -91,14 +122,31 @@ Things to add to AGENTS.md or CLAUDE.md so the agent works better next time.
 ## Raw aggregates
 
 <details>
-Top tools, top 2- and 3-grams, stale-path hits, cache-hit distribution, subagent budget — verbatim from the report. The user (or a future analyzer) can use this to verify your interpretation.
+<summary>Vault bucket</summary>
+
+Top tools / 2-grams / 3-grams / stale-path hits / cache-hit distribution / subagent budget — verbatim from `buckets.vault`.
+</details>
+
+<details>
+<summary>Projects bucket</summary>
+
+Same fields from `buckets.projects`.
+</details>
+
+<details>
+<summary>Total (union)</summary>
+
+Same fields from `buckets.total`.
 </details>
 ```
 
 ## Style rules
 
 - Cite evidence by session id, e.g. "(sessions: conv-A, conv-D)". Do not fabricate sessions.
+- When a pattern is bucket-specific, **name the bucket explicitly**. The contrast between vault and projects is the primary reason this report exists.
 - If a section has no genuine content, omit the section. Do not pad. "Nothing critical" is a valid week.
 - Keep entries short. Each suggestion is one sentence.
 - Confidence levels: `HIGH` ≥ 5 supporting sessions AND a KB/run figure; `MED` 2–4 sessions; `LOW` 1 session.
 - One sample's `toolCallSummary` may have `mcpCalls = []` — that is a valid vault-relevant session anchored by `currentNote` or wikilinks. Do not assume samples are MCP-heavy; lean on `nonMcpSummary` for those.
+- `buckets.projects.currentNoteAnchors` is always empty (external sessions have no Claudian `currentNote`). Do not flag this as a finding.
+- `buckets.projects.cacheHitDistribution` reflects per-turn usage parsed from JSONL; the absolute number is less reliable than in `buckets.vault`. Use it for trend, not benchmark.

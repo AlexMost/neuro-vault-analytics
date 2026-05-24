@@ -5,6 +5,7 @@ import type {
   SessionSummary,
   ToolCall,
 } from './types.js';
+import type { ExternalSession } from './per-project.js';
 
 const MCP_PREFIX = 'mcp__neuro-vault__';
 const ANOMALY_RESULT_BYTES = 5 * 1024;
@@ -42,7 +43,12 @@ function topNGramsOf(calls: ToolCall[], limit: number): SequenceBucket[] {
     .map(({ sequence, count }) => ({ sequence, count, sessionIds: [] }));
 }
 
-export function projectSession(s: SessionSummary): SampledSession {
+export interface ProjectSessionOpts {
+  bucket: 'vault' | 'projects';
+  project: string | null;
+}
+
+export function projectSession(s: SessionSummary, tag: ProjectSessionOpts): SampledSession {
   const mcpCalls = s.toolCalls.filter((c) => c.name.startsWith(MCP_PREFIX));
   const anomalies = s.toolCalls.filter(isAnomaly);
   const nonMcpClean = s.toolCalls.filter(
@@ -70,6 +76,8 @@ export function projectSession(s: SessionSummary): SampledSession {
         nGrams: topNGramsOf(nonMcpClean, 3),
       },
     },
+    bucket: tag.bucket,
+    project: tag.project,
   };
 }
 
@@ -106,9 +114,14 @@ export interface SampleResult {
   budgetUnderflow: boolean;
 }
 
+/**
+ * Byte-budget stratified sampler — every produced sample already carries `bucket`/`project`
+ * via the `tag` argument. Greedy fill with hour-of-day × tool-call quartile strata.
+ */
 export function sampleSessionsWithMeta(
   sessions: SessionSummary[],
   opts: SampleOpts,
+  tag: ProjectSessionOpts,
 ): SampleResult {
   if (sessions.length === 0) return { samples: [], budgetUnderflow: false };
 
@@ -130,7 +143,7 @@ export function sampleSessionsWithMeta(
     let advanced = false;
     for (const q of queues) {
       if (q.length === 0) continue;
-      const projected = projectSession(q.shift()!);
+      const projected = projectSession(q.shift()!, tag);
       const cost = costOf(projected);
       if (out.length === 0) {
         out.push(projected);
@@ -156,6 +169,51 @@ export function sampleSessionsWithMeta(
 export function sampleSessions(
   sessions: SessionSummary[],
   opts: SampleOpts,
+  tag: ProjectSessionOpts,
 ): SampledSession[] {
-  return sampleSessionsWithMeta(sessions, opts).samples;
+  return sampleSessionsWithMeta(sessions, opts, tag).samples;
+}
+
+export interface BalancedSampleResult {
+  samples: SampledSession[];
+  /** True if either sub-budget was too small to fit even one sample. */
+  budgetUnderflow: boolean;
+}
+
+/**
+ * Split the byte budget half-and-half between vault and projects, run the stratified
+ * sampler in each pool, then merge. If one pool returns nothing (empty input or
+ * budget underflow), the other keeps its share — we do NOT reallocate the leftover
+ * budget, because the goal is to keep the two pools comparable in the report, not
+ * to maximize sample count.
+ */
+export function sampleBalanced(
+  vault: SessionSummary[],
+  external: ExternalSession[],
+  opts: SampleOpts,
+): BalancedSampleResult {
+  const half = Math.floor(opts.byteBudget / 2);
+  const vaultResult = sampleSessionsWithMeta(vault, { byteBudget: half }, {
+    bucket: 'vault',
+    project: null,
+  });
+  // For the projects pool, the per-session tag depends on the project, so we
+  // re-tag after sampling. Project lookup is by reference identity (same SessionSummary).
+  const projectByRef = new Map<SessionSummary, string>();
+  for (const e of external) projectByRef.set(e.summary, e.project);
+  const projectsResult = sampleSessionsWithMeta(
+    external.map((e) => e.summary),
+    { byteBudget: opts.byteBudget - half },
+    { bucket: 'projects', project: '' },
+  );
+  for (const sample of projectsResult.samples) {
+    // The original SessionSummary lookup by id is reliable inside this run.
+    const owner = external.find((e) => e.summary.id === sample.id);
+    sample.project = owner ? owner.project : '';
+  }
+
+  return {
+    samples: [...vaultResult.samples, ...projectsResult.samples],
+    budgetUnderflow: vaultResult.budgetUnderflow || projectsResult.budgetUnderflow,
+  };
 }

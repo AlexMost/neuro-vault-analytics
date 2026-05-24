@@ -6,6 +6,14 @@ Claude Code plugin and standalone CLI that turns Claudian conversation records i
 
 Use `/analyze-vault-usage 7d` from inside a Claude Code session, or run `nv-analytics --period 7d` directly. The CLI computes deterministic aggregates (top tools, N+1 patterns, dead ends, cache-hit ratios, subagent budgets) over your Claudian conversation records; the skill hands the aggregates to Claude for pattern critique and writes an actionable note to `Inbox/neuro-vault-usage/YYYY-Www.md` in the vault.
 
+By default the CLI scans **every** project under `~/.claude/projects/` for the period and slices the report into three parallel buckets:
+
+- **Vault** — sessions started from inside the vault directory (full Claudian metadata).
+- **Projects** — sessions from external repos that called the neuro-vault MCP (derived from SDK JSONL alone).
+- **Total** — re-aggregation over the union.
+
+A per-project breakdown lists each external project with at least one vault-touching session, plus its unique tools (tools used in that project and nowhere else). There is no `--scope` flag — the cross-project view is the default. See [`docs/superpowers/specs/2026-05-24-cross-project-breakdown-design.md`](./docs/superpowers/specs/2026-05-24-cross-project-breakdown-design.md) for the design.
+
 ## Install
 
 From inside Claude Code, run two commands:
@@ -62,19 +70,23 @@ cd ~/Obsidian
 node /path/to/neuro-vault-analytics/dist/cli.js --period 14d --format text
 ```
 
-Available flags: `--period <Nd|Nw>` (e.g. `7d`, `2w`), `--vault <path>`, `--sample-size <N>` (default 15), `--format json|text`. If `stats.sessionsVault` is 0, either the period is empty or no session was vault-relevant — check `warnings[]` in the JSON output.
+Available flags: `--period <Nd|Nw>` (e.g. `7d`, `2w`), `--vault <path>`, `--sample-bytes <N|XKB|XMB>` (default 50KB), `--format json|text`. There is also a `--detail <sessionId>` mode for dumping a single session's full `SessionSummary` (vault bucket only). If `buckets.total.sessionsTotal` is 0, either the period is empty or no session was vault-relevant — check `warnings[]` in the JSON output.
 
 Sample output (truncated):
 
 ```json
 {
   "period": { "label": "7d", "startMs": 1745000000000, "endMs": 1745604800000 },
-  "stats": { "sessionsTotal": 18, "sessionsVault": 12, "totalToolCalls": 84, "avgToolCallsPerSession": 7.0 },
-  "aggregates": {
-    "topTools": [{ "key": "mcp__neuro-vault__search_notes", "count": 31 }, ...],
-    ...
+  "buckets": {
+    "vault":    { "sessionsTotal": 12, "totalToolCalls": 84, "topTools": [{ "key": "mcp__neuro-vault__search_notes", "count": 31 }, "..."], "...": "..." },
+    "projects": { "sessionsTotal":  6, "totalToolCalls": 41, "topTools": [{ "key": "mcp__neuro-vault__edit_note",    "count": 14 }, "..."], "...": "..." },
+    "total":    { "sessionsTotal": 18, "totalToolCalls": 125, "...": "..." }
   },
-  "samples": [...],
+  "perProject": [
+    { "project": "-Users-x-git-catalog-ui", "decodedPath": "/Users/x/git/catalog-ui", "sessionsTotal": 4, "uniqueTools": ["mcp__neuro-vault__get_vault_overview"], "...": "..." }
+  ],
+  "unusedTools": ["mcp__neuro-vault__find_duplicates"],
+  "samples": [{ "id": "session-X", "bucket": "projects", "project": "-Users-x-git-catalog-ui", "...": "..." }],
   "warnings": []
 }
 ```

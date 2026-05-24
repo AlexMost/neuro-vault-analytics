@@ -1,7 +1,8 @@
 // src/aggregate.ts
 import {
+  KNOWN_NEURO_VAULT_TOOLS,
   type AggregateBucket,
-  type Aggregates,
+  type BucketStats,
   type SequenceBucket,
   type SessionSummary,
   type SizeBucket,
@@ -42,7 +43,11 @@ function sequencesIn(summary: SessionSummary, n: 2 | 3): string[][] {
   return out;
 }
 
-export function aggregate(sessions: SessionSummary[]): Aggregates {
+/**
+ * Compute aggregate statistics over a single pool of sessions.
+ * Caller invokes this once per bucket (vault, projects, total).
+ */
+export function aggregate(sessions: SessionSummary[]): BucketStats {
   const toolCounts = new Map<string, number>();
   const resultSizeAcc = new Map<string, { sum: number; n: number }>();
   const seqCounts = new Map<
@@ -54,12 +59,14 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
   const cacheHits: number[] = [];
   const subagentBudgets: number[] = [];
   let deadEndCount = 0;
+  let totalToolCalls = 0;
 
   for (const s of sessions) {
     if (s.outcome === 'dead_end') deadEndCount++;
     cacheHits.push(s.cacheHitRatio);
     subagentBudgets.push(...s.subagent.toolCallsPerAgent);
     if (s.currentNote) noteCounts.set(s.currentNote, (noteCounts.get(s.currentNote) ?? 0) + 1);
+    totalToolCalls += s.toolCalls.length;
 
     for (const call of s.toolCalls) {
       toolCounts.set(call.name, (toolCounts.get(call.name) ?? 0) + 1);
@@ -109,6 +116,10 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
     .map(({ sequence, count, sessionIds }) => ({ sequence, count, sessionIds: [...sessionIds] }));
 
   return {
+    sessionsTotal: sessions.length,
+    sessionsVault: sessions.length,
+    totalToolCalls,
+    avgToolCallsPerSession: sessions.length === 0 ? 0 : totalToolCalls / sessions.length,
     topTools: topByCount(toolCounts, 10),
     topSequences,
     largestResultTools,
@@ -116,7 +127,7 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
     currentNoteAnchors: topByCount(noteCounts, 20),
     cacheHitDistribution: {
       p50: percentile(sortedCacheHits, 50),
-      p90: percentile(sortedCacheHits, 90), // NOTE: plan had a bug here using sortedBudgets — fixed to sortedCacheHits
+      p90: percentile(sortedCacheHits, 90),
       mean: cacheHits.length ? cacheHits.reduce((a, b) => a + b, 0) / cacheHits.length : 0,
     },
     subagentBudget: {
@@ -128,4 +139,13 @@ export function aggregate(sessions: SessionSummary[]): Aggregates {
     },
     deadEndCount,
   };
+}
+
+/** Tools from the known catalog that never appeared across the provided sessions. */
+export function computeUnusedTools(sessions: SessionSummary[]): string[] {
+  const seen = new Set<string>();
+  for (const s of sessions) {
+    for (const c of s.toolCalls) seen.add(c.name);
+  }
+  return KNOWN_NEURO_VAULT_TOOLS.filter((t) => !seen.has(t));
 }

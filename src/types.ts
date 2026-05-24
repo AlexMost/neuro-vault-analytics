@@ -91,6 +91,10 @@ export interface SampledSession {
   outcome: Outcome;
   subagent: SubagentStats;
   toolCallSummary: SampledToolCallSummary;
+  /** Which discovery bucket this sample came from. */
+  bucket: 'vault' | 'projects';
+  /** Encoded project dir name for projects-bucket samples; null for vault samples. */
+  project: string | null;
 }
 
 export interface AggregateBucket {
@@ -120,7 +124,13 @@ export interface StalePathHit {
   failedPath: string | null;
 }
 
-export interface Aggregates {
+/** Aggregates computed over a single pool of sessions (vault, projects, or total). */
+export interface BucketStats {
+  sessionsTotal: number;
+  /** In the `vault` bucket: equal to sessionsTotal (already filtered by isVaultRelevant). In `projects`: equal to sessionsTotal by construction (we only include external sessions that called the vault MCP). In `total`: union of both. */
+  sessionsVault: number;
+  totalToolCalls: number;
+  avgToolCallsPerSession: number;
   topTools: AggregateBucket[];
   topSequences: SequenceBucket[];
   largestResultTools: SizeBucket[];
@@ -131,16 +141,55 @@ export interface Aggregates {
   deadEndCount: number;
 }
 
+export interface ProjectBreakdown {
+  /** Encoded project directory name, e.g. `-Users-amostovenko-git-catalog-ui`. */
+  project: string;
+  /** Decoded human-readable absolute path. */
+  decodedPath: string;
+  sessionsTotal: number;
+  /** Sessions in this project that hit at least one neuro-vault MCP tool. By construction equal to sessionsTotal here. */
+  sessionsVault: number;
+  /** Top 5 tools used in this project. */
+  topTools: AggregateBucket[];
+  /** Tools called only in this project — not in the vault and not in any other project. */
+  uniqueTools: string[];
+}
+
 export interface AnalyticsReport {
   period: { startMs: number; endMs: number; label: string };
-  stats: {
-    sessionsTotal: number;
-    sessionsVault: number;
-    totalToolCalls: number;
-    avgToolCallsPerSession: number;
+  buckets: {
+    vault: BucketStats;
+    projects: BucketStats;
+    total: BucketStats;
   };
-  aggregates: Aggregates;
+  /** One entry per external project with ≥1 session touching the vault MCP, sorted by sessionsVault desc. */
+  perProject: ProjectBreakdown[];
+  /** KNOWN_NEURO_VAULT_TOOLS not seen in any session across both buckets. */
+  unusedTools: string[];
   samples: SampledSession[];
   warnings: string[];
 }
 
+/**
+ * Known/expected MCP tool names — used to compute `unusedTools`. Prefix is `mcp__neuro-vault__`
+ * (the corrected one from PR #5). The list is hand-curated from the neuro-vault MCP server
+ * surface; if the server adds or removes a tool, update this list in the same release.
+ */
+export const KNOWN_NEURO_VAULT_TOOLS: readonly string[] = [
+  'mcp__neuro-vault__create_note',
+  'mcp__neuro-vault__edit_note',
+  'mcp__neuro-vault__find_duplicates',
+  'mcp__neuro-vault__get_note_links',
+  'mcp__neuro-vault__get_similar_notes',
+  'mcp__neuro-vault__get_stats',
+  'mcp__neuro-vault__get_vault_overview',
+  'mcp__neuro-vault__list_properties',
+  'mcp__neuro-vault__list_tags',
+  'mcp__neuro-vault__query_notes',
+  'mcp__neuro-vault__read_daily',
+  'mcp__neuro-vault__read_notes',
+  'mcp__neuro-vault__read_property',
+  'mcp__neuro-vault__remove_property',
+  'mcp__neuro-vault__search_notes',
+  'mcp__neuro-vault__set_property',
+];

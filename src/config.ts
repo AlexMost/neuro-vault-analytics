@@ -31,3 +31,12 @@ export function resolveVault(args: ResolveVaultArgs): string {
 export function encodeVaultPath(absVaultPath: string): string {
   return absVaultPath.replace(/\//g, '-');
 }
+
+/**
+ * Best-effort inverse of {@link encodeVaultPath} — used only for human-readable
+ * display. The encoding is lossy (a `-` in the original path is indistinguishable
+ * from a `/` after encoding), so callers must not rely on the result for IO.
+ */
+export function decodeProjectPath(encoded: string): string {
+  return encoded.replace(/-/g, '/');
+}
