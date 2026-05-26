@@ -36,10 +36,7 @@ should:
   ("which tool eats how much context, weighted by how often it runs") needs
   the reader to mentally multiply by `topTools` counts. A mass diagram makes
   it pre-attentive.
-- **`topSequences` table** — a list of `A → B ×N` rows. The anti-pattern of
-  serial edits (`edit_note → edit_note ×11`) or the priming tax
-  (`ToolSearch → read_daily ×16`) jumps out from a flowchart but is buried in
-  a table.
+- **Per-tool vault-vs-projects asymmetry** — the most actionable signal in the report (a tool dominant in projects but absent in vault is the canonical "external workflow you should bring into the vault" indicator). In MD it currently lives behind the per-project breakdown table, which spreads the asymmetry across rows. A single union table sorted by total surfaces it directly.
 - **Vault-vs-Projects contrast** — the primary reason the report exists. In MD
   it currently lives in a three-column "Numbers" table, which forces the
   reader to scan rows. Side-by-side cards put the contrast front and centre.
@@ -156,16 +153,14 @@ Section order:
    list, total sessions, top sequence, dead-end count. Cards are visually
    identical so the eye catches the asymmetry (a tool dominant in one
    column and absent in the other).
-5. **Sequence flows** — Mermaid `flowchart LR` for the top sequences
-   (`count >= 2`) from `buckets.total.topSequences`. Edge label
-   `<count> / <N sessions>`. Top 1–2 edges by count get `linkStyle` to
-   render thicker. Tool names stripped of the `mcp__neuro-vault__` prefix.
-6. **Cache & dead ends** — small horizontal bar for cache hit p50/p90/mean
+5. **Tools by bucket** — a union table of `buckets.vault.topTools` ∪ `buckets.projects.topTools`. Columns: tool name, vault count, projects count, total. Sorted by total descending. Rows where one bucket is `0` and the other is `> 0` get a subtle tint (amber for projects-only, slate for vault-only) so asymmetry pops without screaming.
+6. **Unused tools** — the JSON's top-level `unusedTools` array, rendered as a compact list. "Nothing unused this period." line if the array is empty.
+7. **Cache & dead ends** — small horizontal bar for cache hit p50/p90/mean
    (Tailwind divs, no chart library), plus a badge `dead ends: N`.
-7. **Patterns observed** — `### High-value patterns` and `### Dead ends`
+8. **Patterns observed** — `### High-value patterns` and `### Dead ends`
    rendered as text. Same content as the MD section; session IDs as
    `<code>`.
-8. **Suggestions** — each suggestion is a coloured card by confidence tier:
+9. **Suggestions** — each suggestion is a coloured card by confidence tier:
    - `HIGH` → emerald (`bg-emerald-50 border-emerald-300`)
    - `MED` → amber
    - `LOW` → slate
@@ -175,9 +170,9 @@ Section order:
      bold title, one-line action paragraph.
    - Grouped into three subsections (`MCP features` / `Vault structure` /
      `Prompt tuning`), same as MD.
-9. **Per-project breakdown** — compact table or card grid for
-   `perProject` (only if non-empty).
-10. **Raw aggregates** — `<details>` collapsed by default. Inside: `<pre>`
+10. **Per-project breakdown** — compact table or card grid for
+    `perProject` (only if non-empty).
+11. **Raw aggregates** — `<details>` collapsed by default. Inside: `<pre>`
     blocks with top tools, 2-grams, 3-grams, `largestResultTools`, cache
     distribution, subagent budget, stale-path errors, warnings. Per
     bucket (vault / projects / total) just like the MD.
@@ -188,11 +183,9 @@ If `buckets.total.sessionsTotal === 0`:
 
 - Header renders with all three badges showing `0`.
 - TL;DR shows `"Sessions touching the vault: 0. No patterns observed."`.
-- All visualisation sections (mass diagram, vault-vs-projects, sequence
-  flows, cache & dead ends, patterns, suggestions, per-project) are
-  omitted entirely. Do **not** emit empty Mermaid blocks — `mermaid.initialize`
-  with no diagrams is fine, but `<pre class="mermaid"></pre>` with no
-  content triggers a console error.
+- All visualisation sections (mass diagram, vault-vs-projects, tools by bucket,
+  unused tools, cache & dead ends, patterns, suggestions, per-project) are
+  omitted entirely.
 - Raw aggregates `<details>` is still rendered (the structural fields are
   all zero/empty, but the section is consistent across reports).
 
@@ -207,10 +200,6 @@ The single-file HTML scaffold the html-prompt template produces:
     <meta charset="utf-8">
     <title>Usage analytics <label></title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-      mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
-    </script>
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       h1, h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif; }
@@ -223,10 +212,9 @@ The single-file HTML scaffold the html-prompt template produces:
 </html>
 ```
 
-CDN choice — `cdn.tailwindcss.com` and `cdn.jsdelivr.net` were chosen because
-both are referenced in the Pocock convention this report follows, and both
-are reachable without authentication from a default macOS browser opening a
-`file://` URL.
+CDN choice — `cdn.tailwindcss.com` was chosen because it is referenced in the
+Pocock convention this report follows, and is reachable without authentication
+from a default macOS browser opening a `file://` URL.
 
 ## Interfaces
 
@@ -274,13 +262,14 @@ Parallel structure to `prompt.md`:
   - Mass diagram: "Compute height for tool T as `clamp(40, round(avgBytes[T]
     / maxAvgBytes * 200), 200)` pixels; width as `clamp(60, round(count[T] /
     maxCount * 180), 180)`. Show top 8 by avg bytes."
-  - Sequence flow: "Pick top 5 from `buckets.total.topSequences` with count
-    >= 2. Edge label `<count> / <N sess>`. Top 2 by count get linkStyle
-    stroke-width:3px."
+  - Tools by bucket: union table over `buckets.vault.topTools` and
+    `buckets.projects.topTools`, sorted by total, amber/slate tinting for
+    asymmetric rows.
+  - Unused tools: compact list from the top-level `unusedTools` array.
   - Suggestion cards: explicit colour mapping by confidence tier.
   - Empty-period: rules as above.
-- **Style rules** — single-file, CDN scripts as specified, no external
-  fonts beyond system serif/sans, no JS beyond the Mermaid init.
+- **Style rules** — single-file, one CDN script as specified, no external
+  fonts beyond system serif/sans, no JS.
 
 ## Error handling
 
@@ -306,8 +295,8 @@ with no library code:
       4 base36 chars and differs across consecutive runs.
 - [ ] HTML opens in the system default browser via `file://` with no
       console errors. Tailwind classes apply (visible layout, not unstyled).
-- [ ] Mermaid renders the sequence flowchart with visible thicker edges for
-      the top sequences.
+- [ ] Tools by bucket table renders with at least 10 rows for a typical week; amber-tinted rows correspond to projects-only tools and slate-tinted rows to vault-only tools.
+- [ ] Unused tools section renders when `unusedTools` is non-empty; shows "Nothing unused this period." when empty.
 - [ ] Mass diagram for `largestResultTools` shows visibly proportional
       tiles — the top tool's tile is noticeably larger than the smallest
       shown tile.
@@ -340,8 +329,7 @@ unchanged.
 - [ ] `skills/analyze-vault-usage/SKILL.md` has Step 4 and the updated
       description.
 - [ ] `skills/analyze-vault-usage/html-prompt.md` is created.
-- [ ] HTML template uses Tailwind CDN, Mermaid ESM CDN, and a small custom
-      CSS layer as specified.
+- [ ] HTML template uses Tailwind CDN and a small custom CSS layer as specified.
 - [ ] Content sections mirror MD plus the diagrams enumerated above.
 - [ ] Skill prints the HTML path to chat as a single line after writing.
 - [ ] Real-week dry run (the week current at implementation time) yields a

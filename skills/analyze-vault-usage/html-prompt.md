@@ -27,10 +27,6 @@ The `<!-- ... -->` comments inside the scaffold mark *where* each section goes �
     <meta charset="utf-8">
     <title>Usage analytics {{label}}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-      mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
-    </script>
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       h1, h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif; }
@@ -59,7 +55,8 @@ The `<!-- ... -->` comments inside the scaffold mark *where* each section goes �
 
     <!-- Where the context goes — see "Mass diagram" rule -->
     <!-- Vault vs Projects — see "Vault vs Projects" rule -->
-    <!-- Sequence flows — see "Sequence flows" rule -->
+    <!-- Tools by bucket — see "Tools by bucket" rule -->
+    <!-- Unused tools — see "Unused tools" rule -->
     <!-- Cache & dead ends — see "Cache & dead ends" rule -->
     <!-- Patterns observed — see "Patterns observed" rule -->
     <!-- Suggestions — see "Suggestions" rule -->
@@ -145,36 +142,70 @@ Two cards side-by-side. Each card lists, for its bucket:
 
 If a bucket has no `topSequences`, omit the "Top sequence" row from that card only.
 
-### Sequence flows — Mermaid
+### Tools by bucket
 
-**Skip this section** if `buckets.total.topSequences` is empty or every entry has `count < 2`.
+**Skip this section** if `buckets.total.sessionsTotal === 0`.
 
-Pick the top 5 entries from `buckets.total.topSequences` with `count >= 2`. Emit a Mermaid `flowchart LR`. Each entry is a chain of edges between consecutive sequence steps. Edge label `{{count}} / {{N}} sess` where `N` is `sessionIds.length`. The top 2 by count get `linkStyle ... stroke-width:3px`.
+Build a union table over `buckets.vault.topTools` and `buckets.projects.topTools`. For each unique tool key across both lists:
 
-Strip the `mcp__neuro-vault__` prefix from tool names. Use the prefix-stripped name as the Mermaid node id (it's alphanumeric + underscore — safe).
+- `vaultCount` = count from `buckets.vault.topTools` if present, else `0`.
+- `projectsCount` = count from `buckets.projects.topTools` if present, else `0`.
+- `total` = `vaultCount + projectsCount`.
 
-**Self-loops and repeated nodes.** A sequence like `Bash → Bash` or `Read → Read → Read` would, if rendered with a single shared node id `Bash`, become a self-loop in Mermaid instead of a chain. Disambiguate by suffixing each repeated occurrence after the first: the second `Bash` becomes node id `Bash_2`, the third `Bash_3`, and so on. Give each suffixed node the same display label (using `Bash_2[Bash]`, `Bash_3[Bash]` syntax) so the diagram still reads as a chain of identical-looking nodes. Counters reset per sequence entry — `Bash → Bash → Bash` in one entry and `Bash → Bash` in another both start counting from 2.
+Sort rows by `total` descending. Show every row in the union — typical reports surface 10–25 distinct tools, which fits on screen without truncation. Strip the `mcp__neuro-vault__` prefix from tool names; leave foreign `mcp__<server>__` prefixes intact.
 
-Mermaid `linkStyle` indices count edges, not sequence entries. A 2-step entry `A → B` contributes 1 edge; a 3-step entry `A → B → C` contributes 2 edges. To compute the index for the top-by-count entry, sum the edge counts of all preceding entries in emission order. When an entry has multiple edges, apply `linkStyle` to all of them. Comparison "top 2 by count" is done at the entry level (one entry = one rank), not at the edge level.
+Row tinting:
+
+- `vaultCount === 0 && projectsCount > 0` → projects-only row → `bg-amber-50`.
+- `projectsCount === 0 && vaultCount > 0` → vault-only row → `bg-slate-50`.
+- Both `> 0` → no tint (default white row).
 
 ```html
 <section class="mb-12">
-  <h2 class="text-2xl mb-4">Sequence flows</h2>
-  <pre class="mermaid">
-flowchart LR
-  search_notes -->|18 / 11 sess| read_notes
-  query_notes -->|18 / 15 sess| read_notes
-  ToolSearch -->|16 / 16 sess| read_daily
-  edit_note -->|11 / 1 sess| edit_note
-  search_notes -->|19 / 11 sess| search_notes
-  linkStyle 0 stroke-width:3px
-  linkStyle 1 stroke-width:3px
-  </pre>
-  <p class="text-sm text-slate-600 mt-3">Top 5 two-step sequences across the union of vault + projects. Thicker arrows are higher-frequency.</p>
+  <h2 class="text-2xl mb-4">Tools by bucket</h2>
+  <table class="w-full text-sm border-collapse">
+    <thead>
+      <tr class="border-b border-slate-300 text-left">
+        <th class="py-2 pr-4">Tool</th>
+        <th class="py-2 pr-4 text-right">Vault</th>
+        <th class="py-2 pr-4 text-right">Projects</th>
+        <th class="py-2 text-right">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="border-b border-slate-100">
+        <td class="py-2 pr-4 font-mono text-xs">{{tool_name}}</td>
+        <td class="py-2 pr-4 text-right font-mono">{{vaultCount}}</td>
+        <td class="py-2 pr-4 text-right font-mono">{{projectsCount}}</td>
+        <td class="py-2 text-right font-mono font-semibold">{{total}}</td>
+      </tr>
+      <!-- one row per unique tool in the union, sorted by total desc -->
+    </tbody>
+  </table>
+  <p class="text-sm text-slate-600 mt-3">Amber rows are tools only used in external projects (the canonical "external workflow" signal); slate rows are tools only used inside the vault. Counts are the per-bucket top-N reported by the CLI; a tool with low rank in one bucket may appear as 0 even if it has a handful of calls.</p>
 </section>
 ```
 
-The example above is illustrative; replace with actual data. The `linkStyle` indices match the order of edges in the chart (0-based).
+The row class is `bg-amber-50`, `bg-slate-50`, or omitted entirely — apply via `class="border-b border-slate-100 bg-amber-50"` etc. The footnote about the rank-N caveat is part of the section, not optional.
+
+### Unused tools
+
+**Skip this section** if `buckets.total.sessionsTotal === 0` OR if the JSON's top-level `unusedTools` array is empty.
+
+The top-level `unusedTools` field lists catalog tools that received zero calls across vault and projects for the period. Render as a compact list. Strip the `mcp__neuro-vault__` prefix; leave foreign prefixes intact.
+
+```html
+<section class="mb-12">
+  <h2 class="text-2xl mb-4">Unused tools</h2>
+  <ul class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm font-mono">
+    <li class="text-slate-600">{{tool_name}}</li>
+    <!-- one per entry in unusedTools -->
+  </ul>
+  <p class="text-sm text-slate-600 mt-3">Catalog tools never called this period — candidates for review or removal if the pattern persists across multiple periods.</p>
+</section>
+```
+
+If `unusedTools` is empty but `sessionsTotal > 0`, still render the section heading with a single line `<p class="text-sm text-slate-600">Nothing unused this period.</p>` instead of the `<ul>`. (Empty array specifically signals "good coverage", which is worth showing, not silently omitting.)
 
 ### Cache & dead ends
 
@@ -351,13 +382,12 @@ If `buckets.total.sessionsTotal === 0`:
 
 - Render the header with all three badges showing `0`.
 - Render the TL;DR with: *Sessions touching the vault: 0. No patterns observed.*
-- **Omit entirely**: "Where the context goes", "Vault vs Projects", "Sequence flows", "Cache & dead ends", "Patterns observed", "Suggestions", "Per-project breakdown".
+- **Omit entirely**: "Where the context goes", "Vault vs Projects", "Tools by bucket", "Unused tools", "Cache & dead ends", "Patterns observed", "Suggestions", "Per-project breakdown".
 - **Render**: "Raw aggregates" (everything zero/empty, just for shape).
-- Do not emit any `<pre class="mermaid">` element. An empty Mermaid block triggers a console error at render time.
 
 ## Style rules
 
-- One self-contained HTML document, no external JS beyond the two CDN scripts in `<head>`.
+- One self-contained HTML document, no external JS beyond the one CDN script in `<head>`.
 - No external CSS beyond Tailwind CDN.
 - Strip the `mcp__neuro-vault__` prefix from user-visible tool names. Do NOT strip other `mcp__<server>__` prefixes (e.g. `mcp__ccd_session__mark_chapter` stays as-is — those are foreign tools called from external projects in the `projects` bucket and the prefix is the actual disambiguator). Raw aggregates may keep all prefixes — they are debug data.
 - Generous whitespace: section margins `mb-12`, card padding `p-6`, gap `gap-6` inside grids.
