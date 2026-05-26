@@ -55,7 +55,7 @@ The `<!-- ... -->` comments inside the scaffold mark *where* each section goes �
 
     <!-- Where the context goes — see "Mass diagram" rule -->
     <!-- Vault vs Projects — see "Vault vs Projects" rule -->
-    <!-- Neuro-vault tool usage — see "Neuro-vault tool usage" rule -->
+    <!-- Tools by bucket — see "Tools by bucket" rule -->
     <!-- Unused tools — see "Unused tools" rule -->
     <!-- Cache & dead ends — see "Cache & dead ends" rule -->
     <!-- Patterns observed — see "Patterns observed" rule -->
@@ -142,29 +142,22 @@ Two cards side-by-side. Each card lists, for its bucket:
 
 If a bucket has no `topSequences`, omit the "Top sequence" row from that card only.
 
-### Neuro-vault tool usage
+### Tools by bucket
 
 **Skip this section** if `buckets.total.sessionsTotal === 0`.
 
-Build a union table over `buckets.vault.topTools` and `buckets.projects.topTools`, **restricted to `mcp__neuro-vault__*` tools**. Drop any tool whose key does not start with `mcp__neuro-vault__` — generic tools like `Bash`, `Read`, `Edit`, `WebFetch` are not part of this report's "how is the neuro-vault MCP being used" lens; they remain visible in the mass diagram (top of report) and in Raw aggregates (bottom).
-
-For each unique neuro-vault tool key across both lists:
+Build a union table over `buckets.vault.topTools` and `buckets.projects.topTools`. Include every tool from either list — generic tools like `Bash`, `Read`, `Edit`, `Write` matter because their volume (and bucket asymmetry) reveals how time is actually spent. For each unique tool key across both lists:
 
 - `vaultCount` = count from `buckets.vault.topTools` if present, else `0`.
 - `projectsCount` = count from `buckets.projects.topTools` if present, else `0`.
 - `total` = `vaultCount + projectsCount`.
+- `isVaultTool` = `true` if the key starts with `mcp__neuro-vault__`, else `false`.
 
-Sort rows by `total` descending. Strip the `mcp__neuro-vault__` prefix from every displayed tool name.
-
-Row tinting:
-
-- `vaultCount === 0 && projectsCount > 0` → projects-only row → `bg-amber-50`.
-- `projectsCount === 0 && vaultCount > 0` → vault-only row → `bg-slate-50`.
-- Both `> 0` → no tint (default white row).
+Sort rows by `total` descending. Strip the `mcp__neuro-vault__` prefix from displayed names (it's what the report is about — the namespace is implicit and the prefix is noise). Leave foreign `mcp__<server>__` prefixes intact.
 
 ```html
 <section class="mb-12">
-  <h2 class="text-2xl mb-4">Neuro-vault tool usage</h2>
+  <h2 class="text-2xl mb-4">Tools by bucket</h2>
   <table class="w-full text-sm border-collapse">
     <thead>
       <tr class="border-b border-slate-300 text-left">
@@ -175,8 +168,10 @@ Row tinting:
       </tr>
     </thead>
     <tbody>
-      <tr class="border-b border-slate-100">
-        <td class="py-2 pr-4 font-mono text-xs">{{tool_name}}</td>
+      <tr class="border-b border-slate-100{{rowTintClass}}">
+        <td class="py-2 pr-4 font-mono text-xs{{toolNameWeight}}">
+          {{tool_name}}{{vaultBadge}}
+        </td>
         <td class="py-2 pr-4 text-right font-mono">{{vaultCount}}</td>
         <td class="py-2 pr-4 text-right font-mono">{{projectsCount}}</td>
         <td class="py-2 text-right font-mono font-semibold">{{total}}</td>
@@ -184,11 +179,26 @@ Row tinting:
       <!-- one row per unique tool in the union, sorted by total desc -->
     </tbody>
   </table>
-  <p class="text-sm text-slate-600 mt-3">Restricted to <code class="text-xs bg-slate-100 px-1 rounded">mcp__neuro-vault__*</code> tools — the question this table answers is "which vault tools are doing the work, and where". Amber rows are tools called only from external projects (the canonical "external workflow that should move into the vault" signal); slate rows are vault-only. Counts come from the per-bucket top-N table emitted by the CLI; a tool with low rank in one bucket may show as <code class="text-xs">0</code> even if it has a handful of calls.</p>
-</section>
 ```
 
-The row class is `bg-amber-50`, `bg-slate-50`, or omitted entirely — apply via `class="border-b border-slate-100 bg-amber-50"` etc. The footnote about the rank-N caveat is part of the section, not optional.
+Resolve the row's optional classes at generation time — do not emit the `{{ ... }}` placeholders literally:
+
+- `{{rowTintClass}}`:
+  - `vaultCount === 0 && projectsCount > 0` → ` bg-amber-50` (note the leading space so it concatenates onto the existing class list)
+  - `projectsCount === 0 && vaultCount > 0` → ` bg-slate-50`
+  - both `> 0` → empty string
+- `{{toolNameWeight}}`:
+  - `isVaultTool === true` → ` font-semibold text-slate-900`
+  - else → empty string
+- `{{vaultBadge}}`:
+  - `isVaultTool === true` → ` <span class="ml-2 inline-block text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">vault</span>`
+  - else → empty string
+
+These three classifications are independent. A vault tool used only in vault gets both the slate tint AND the bold + emerald badge.
+
+  <p class="text-sm text-slate-600 mt-3">All tool calls across vault + projects, sorted by total. <span class="inline-block text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">vault</span> badges mark <code class="text-xs bg-slate-100 px-1 rounded">mcp__neuro-vault__*</code> tools — these are the report's lens. Amber rows are projects-only tools (the canonical "external workflow" signal); slate rows are vault-only. Counts come from per-bucket top-N tables emitted by the CLI; a low-rank tool in one bucket may appear as <code class="text-xs">0</code> even with a handful of calls.</p>
+</section>
+```
 
 ### Unused tools
 
@@ -384,7 +394,7 @@ If `buckets.total.sessionsTotal === 0`:
 
 - Render the header with all three badges showing `0`.
 - Render the TL;DR with: *Sessions touching the vault: 0. No patterns observed.*
-- **Omit entirely**: "Where the context goes", "Vault vs Projects", "Neuro-vault tool usage", "Unused tools", "Cache & dead ends", "Patterns observed", "Suggestions", "Per-project breakdown".
+- **Omit entirely**: "Where the context goes", "Vault vs Projects", "Tools by bucket", "Unused tools", "Cache & dead ends", "Patterns observed", "Suggestions", "Per-project breakdown".
 - **Render**: "Raw aggregates" (everything zero/empty, just for shape).
 
 ## Style rules
