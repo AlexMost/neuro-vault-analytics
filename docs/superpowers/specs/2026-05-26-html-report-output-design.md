@@ -153,7 +153,7 @@ Section order:
    list, total sessions, top sequence, dead-end count. Cards are visually
    identical so the eye catches the asymmetry (a tool dominant in one
    column and absent in the other).
-5. **Tools by bucket** — a union table of `buckets.vault.topTools` ∪ `buckets.projects.topTools`. Columns: tool name, vault count, projects count, total. Sorted by total descending. Rows where one bucket is `0` and the other is `> 0` get a subtle tint (amber for projects-only, slate for vault-only) so asymmetry pops without screaming.
+5. **Neuro-vault tool usage** — a union table of `buckets.vault.topTools` ∪ `buckets.projects.topTools`, **filtered to `mcp__neuro-vault__*` tools only**. Columns: tool name (prefix stripped), vault count, projects count, total. Sorted by total descending. Rows where one bucket is `0` and the other is `> 0` get a subtle tint (amber for projects-only, slate for vault-only) so asymmetry pops. The filter is deliberate: the report's lens is "how the vault MCP is being used"; generic tools like `Bash`/`Read`/`Edit` remain visible in the mass diagram and Raw aggregates.
 6. **Unused tools** — the JSON's top-level `unusedTools` array, rendered as a compact list. "Nothing unused this period." line if the array is empty.
 7. **Cache & dead ends** — small horizontal bar for cache hit p50/p90/mean
    (Tailwind divs, no chart library), plus a badge `dead ends: N`.
@@ -295,7 +295,7 @@ with no library code:
       4 base36 chars and differs across consecutive runs.
 - [ ] HTML opens in the system default browser via `file://` with no
       console errors. Tailwind classes apply (visible layout, not unstyled).
-- [ ] Tools by bucket table renders with at least 10 rows for a typical week; amber-tinted rows correspond to projects-only tools and slate-tinted rows to vault-only tools.
+- [ ] Neuro-vault tool usage table renders with rows restricted to `mcp__neuro-vault__*` tools (no `Bash`/`Read`/`Edit`/`WebFetch` etc.); amber-tinted rows correspond to projects-only tools and slate-tinted rows to vault-only tools.
 - [ ] Unused tools section renders when `unusedTools` is non-empty; shows "Nothing unused this period." when empty.
 - [ ] Mass diagram for `largestResultTools` shows visibly proportional
       tiles — the top tool's tile is noticeably larger than the smallest

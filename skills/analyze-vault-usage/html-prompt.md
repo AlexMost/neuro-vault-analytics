@@ -142,17 +142,19 @@ Two cards side-by-side. Each card lists, for its bucket:
 
 If a bucket has no `topSequences`, omit the "Top sequence" row from that card only.
 
-### Tools by bucket
+### Neuro-vault tool usage
 
 **Skip this section** if `buckets.total.sessionsTotal === 0`.
 
-Build a union table over `buckets.vault.topTools` and `buckets.projects.topTools`. For each unique tool key across both lists:
+Build a union table over `buckets.vault.topTools` and `buckets.projects.topTools`, **restricted to `mcp__neuro-vault__*` tools**. Drop any tool whose key does not start with `mcp__neuro-vault__` — generic tools like `Bash`, `Read`, `Edit`, `WebFetch` are not part of this report's "how is the neuro-vault MCP being used" lens; they remain visible in the mass diagram (top of report) and in Raw aggregates (bottom).
+
+For each unique neuro-vault tool key across both lists:
 
 - `vaultCount` = count from `buckets.vault.topTools` if present, else `0`.
 - `projectsCount` = count from `buckets.projects.topTools` if present, else `0`.
 - `total` = `vaultCount + projectsCount`.
 
-Sort rows by `total` descending. Show every row in the union — typical reports surface 10–25 distinct tools, which fits on screen without truncation. Strip the `mcp__neuro-vault__` prefix from tool names; leave foreign `mcp__<server>__` prefixes intact.
+Sort rows by `total` descending. Strip the `mcp__neuro-vault__` prefix from every displayed tool name.
 
 Row tinting:
 
@@ -162,7 +164,7 @@ Row tinting:
 
 ```html
 <section class="mb-12">
-  <h2 class="text-2xl mb-4">Tools by bucket</h2>
+  <h2 class="text-2xl mb-4">Neuro-vault tool usage</h2>
   <table class="w-full text-sm border-collapse">
     <thead>
       <tr class="border-b border-slate-300 text-left">
@@ -182,7 +184,7 @@ Row tinting:
       <!-- one row per unique tool in the union, sorted by total desc -->
     </tbody>
   </table>
-  <p class="text-sm text-slate-600 mt-3">Amber rows are tools only used in external projects (the canonical "external workflow" signal); slate rows are tools only used inside the vault. Counts are the per-bucket top-N reported by the CLI; a tool with low rank in one bucket may appear as 0 even if it has a handful of calls.</p>
+  <p class="text-sm text-slate-600 mt-3">Restricted to <code class="text-xs bg-slate-100 px-1 rounded">mcp__neuro-vault__*</code> tools — the question this table answers is "which vault tools are doing the work, and where". Amber rows are tools called only from external projects (the canonical "external workflow that should move into the vault" signal); slate rows are vault-only. Counts come from the per-bucket top-N table emitted by the CLI; a tool with low rank in one bucket may show as <code class="text-xs">0</code> even if it has a handful of calls.</p>
 </section>
 ```
 
