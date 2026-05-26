@@ -34,7 +34,9 @@ The `<!-- ... -->` comments inside the scaffold mark *where* each section goes �
     <style>
       body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
       h1, h2 { font-family: "Iowan Old Style", "Palatino Linotype", Palatino, serif; }
-      .mass-tile { display: flex; align-items: flex-end; justify-content: center; padding: 4px; font-size: 11px; line-height: 1.2; text-align: center; }
+      .mass-cell { display: flex; flex-direction: column; align-items: center; }
+      .mass-rect { background: rgb(51, 65, 85); border-radius: 4px; }
+      .mass-label { margin-top: 6px; font-size: 11px; line-height: 1.2; text-align: center; color: rgb(51, 65, 85); max-width: 120px; word-break: break-word; }
     </style>
   </head>
   <body class="max-w-5xl mx-auto p-12 text-slate-900">
@@ -92,8 +94,9 @@ Render:
 <section class="mb-12">
   <h2 class="text-2xl mb-4">Where the context goes</h2>
   <div class="flex flex-wrap gap-3 items-end">
-    <div class="mass-tile bg-slate-700 text-white rounded" style="height:{{heightPx}}px; width:{{widthPx}}px;">
-      {{tool_name}} · {{avg_kb}} KB · {{count}} calls
+    <div class="mass-cell">
+      <div class="mass-rect" style="height:{{heightPx}}px; width:{{widthPx}}px;"></div>
+      <div class="mass-label">{{tool_name}}<br>{{avg_kb}} KB · {{count}} calls</div>
     </div>
     <!-- one per tool, in descending avgSizeBytes order -->
   </div>
