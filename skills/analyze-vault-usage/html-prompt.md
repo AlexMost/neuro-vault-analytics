@@ -18,6 +18,8 @@ Plus, in your working memory: the Markdown body you produced in Step 3. Reuse it
 
 Emit exactly this HTML structure, filling the `{{ ... }}` slots. Remove any optional section if its skip-condition fires (see "Section rules" below). Do not add comments to the output.
 
+The `<!-- ... -->` comments inside the scaffold mark *where* each section goes — strip them from the output. Replace each comment with the real section markup (or omit the section if its skip-condition fires).
+
 ```html
 <!doctype html>
 <html lang="en">
@@ -127,7 +129,12 @@ Two cards side-by-side. Each card lists, for its bucket:
     </div>
     <div class="border border-slate-200 rounded-lg p-6">
       <h3 class="text-lg font-semibold mb-3">Projects</h3>
-      <!-- same shape, buckets.projects -->
+      <dl class="space-y-2 text-sm">
+        <div><span class="text-slate-500">Sessions:</span> {{buckets.projects.sessionsTotal}}</div>
+        <div><span class="text-slate-500">Top tools:</span> {{top 5 from buckets.projects.topTools, prefix-stripped}}</div>
+        <div><span class="text-slate-500">Top sequence:</span> <span class="font-mono text-xs">{{seq joined with →}}</span> <span class="text-slate-500">×{{count}}</span></div>
+        <div><span class="text-slate-500">Dead ends:</span> {{buckets.projects.deadEndCount}}</div>
+      </dl>
     </div>
   </div>
 </section>
@@ -142,6 +149,8 @@ If a bucket has no `topSequences`, omit the "Top sequence" row from that card on
 Pick the top 5 entries from `buckets.total.topSequences` with `count >= 2`. Emit a Mermaid `flowchart LR`. Each entry is a chain of edges between consecutive sequence steps. Edge label `{{count}} / {{N}} sess` where `N` is `sessionIds.length`. The top 2 by count get `linkStyle ... stroke-width:3px`.
 
 Strip the `mcp__neuro-vault__` prefix from tool names. Use the prefix-stripped name as the Mermaid node id (it's alphanumeric + underscore — safe).
+
+Mermaid `linkStyle` indices count edges, not sequence entries. A 2-step entry `A → B` contributes 1 edge; a 3-step entry `A → B → C` contributes 2 edges. To compute the index for the top-by-count entry, sum the edge counts of all preceding entries in emission order. When an entry has multiple edges, apply `linkStyle` to all of them. Comparison "top 2 by count" is done at the entry level (one entry = one rank), not at the edge level.
 
 ```html
 <section class="mb-12">
@@ -168,6 +177,8 @@ The example above is illustrative; replace with actual data. The `linkStyle` ind
 
 Use `buckets.total.cacheHitDistribution` and `buckets.total.deadEndCount`. Cache values are 0..1; render the bar widths as percentages (`value * 100`).
 
+Resolve `{{deadEndColorClass}}` to a concrete Tailwind class while generating the HTML — emit `text-red-600` if `deadEndCount >= 5`, otherwise `text-slate-600`. Do NOT emit the conditional expression verbatim; Tailwind's CDN scanner only picks up class names that appear literally in the output.
+
 ```html
 <section class="mb-12 grid grid-cols-2 gap-6">
   <div class="border border-slate-200 rounded-lg p-6">
@@ -192,7 +203,7 @@ Use `buckets.total.cacheHitDistribution` and `buckets.total.deadEndCount`. Cache
   </div>
   <div class="border border-slate-200 rounded-lg p-6 flex items-center justify-center">
     <div class="text-center">
-      <div class="text-4xl font-bold {{deadEndCount >= 5 ? 'text-red-600' : 'text-slate-600'}}">{{deadEndCount}}</div>
+      <div class="text-4xl font-bold {{deadEndColorClass}}">{{deadEndCount}}</div>
       <div class="text-sm text-slate-500 mt-1">Dead ends</div>
     </div>
   </div>
@@ -243,7 +254,15 @@ Card shape:
 </div>
 ```
 
-The chip-text `text-emerald-800` colour matches the card border. Use the corresponding shade for each tier (`text-amber-800`, `text-slate-700`, `text-red-800`, `text-sky-800`).
+Chip-text colour per tier (the `text-...` class on the `<div class="text-xs font-mono ...">` inside the card):
+
+- HIGH → `text-emerald-800`
+- MED → `text-amber-800`
+- LOW → `text-slate-700`
+- BLOCKED → `text-red-800`
+- REQUIRES_VERIFICATION → `text-sky-800`
+
+LOW uses `-700` rather than `-800` because `text-slate-800` is nearly indistinguishable from `text-slate-900` body text on `bg-slate-50`; `text-slate-700` keeps the chip readable but visually de-emphasised.
 
 Section wrapper:
 
@@ -310,11 +329,12 @@ Render as a table. `decodedPath` is human-readable; show it instead of the encod
       <summary class="cursor-pointer font-semibold">Total (union)</summary>
       <pre class="mt-3 text-xs whitespace-pre-wrap">{{total raw}}</pre>
     </details>
+    <p class="mt-4 text-xs text-slate-500"><span class="font-semibold">Warnings:</span> {{warnings joined or "none"}}</p>
   </div>
 </details>
 ```
 
-For `{{vault raw}}` / `{{projects raw}}` / `{{total raw}}`, emit the same fields the MD's "Raw aggregates" section emits for that bucket: top tools, top 2-grams, top 3-grams, largest result tools, stale-path hits, current-note anchors, cache-hit distribution, subagent budget, dead ends, warnings. Plain text, one field per labelled paragraph.
+For `{{vault raw}}` / `{{projects raw}}` / `{{total raw}}`, emit the per-bucket fields the MD's "Raw aggregates" section emits: top tools, top 2-grams, top 3-grams, largest result tools, stale-path hits, current-note anchors, cache-hit distribution, subagent budget, dead-end count. Plain text, one field per labelled paragraph. `warnings` is a top-level `AnalyticsReport` field — emit it once at the bottom of the outer `<details>` block, after the three nested bucket details, not inside each bucket.
 
 If a field is empty for a bucket (e.g. `currentNoteAnchors` is always empty for `projects`), write "none" rather than emitting an empty list.
 
