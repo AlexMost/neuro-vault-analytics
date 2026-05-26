@@ -224,7 +224,9 @@ Reuse your MD `## Patterns observed` body. Convert each `### High-value patterns
     {{converted from MD bullets}}
   </ul>
   <h3 class="text-lg mt-6 mb-2">Dead ends</h3>
-  <!-- same shape, or omit if MD omitted it -->
+  <ul class="space-y-2 list-disc pl-6 text-sm">
+    {{converted from MD Dead ends bullets, or omit this h3 + ul pair if MD omitted the Dead ends subsection}}
+  </ul>
 </section>
 ```
 
@@ -270,11 +272,11 @@ Section wrapper:
 <section class="mb-12">
   <h2 class="text-2xl mb-4">Suggestions</h2>
   <h3 class="text-lg mt-6 mb-3">MCP features</h3>
-  <!-- cards -->
+  {{cards for this group, one per suggestion, using the card shape above; omit the preceding <h3> if this group has no suggestions}}
   <h3 class="text-lg mt-6 mb-3">Vault structure</h3>
-  <!-- cards -->
+  {{cards for this group, one per suggestion, using the card shape above; omit the preceding <h3> if this group has no suggestions}}
   <h3 class="text-lg mt-6 mb-3">Prompt tuning</h3>
-  <!-- cards -->
+  {{cards for this group, one per suggestion, using the card shape above; omit the preceding <h3> if this group has no suggestions}}
 </section>
 ```
 
