@@ -68,7 +68,7 @@ The `<!-- ... -->` comments inside the scaffold mark *where* each section goes �
 </html>
 ```
 
-`{{label}}` is `period.label` from the JSON. `{{period_start_iso}}` / `{{period_end_iso}}` are `period.startMs` / `period.endMs` formatted as `YYYY-MM-DD`.
+`{{label}}` is the derived filename label, matching the MD filename rule in `SKILL.md` Step 3: ISO week `YYYY-Www` of `period.endMs` if `(period.endMs - period.startMs) / 86400000 >= 7`, otherwise `<YYYY-MM-DD of period.startMs>_to_<YYYY-MM-DD of period.endMs>`. It is NOT the raw `period.label` field (which is the user's `--period` argument, e.g. "7d"). Compute it yourself from the timestamps. `{{period_start_iso}}` / `{{period_end_iso}}` are `period.startMs` / `period.endMs` formatted as `YYYY-MM-DD`.
 
 ## Section rules
 
@@ -149,6 +149,8 @@ If a bucket has no `topSequences`, omit the "Top sequence" row from that card on
 Pick the top 5 entries from `buckets.total.topSequences` with `count >= 2`. Emit a Mermaid `flowchart LR`. Each entry is a chain of edges between consecutive sequence steps. Edge label `{{count}} / {{N}} sess` where `N` is `sessionIds.length`. The top 2 by count get `linkStyle ... stroke-width:3px`.
 
 Strip the `mcp__neuro-vault__` prefix from tool names. Use the prefix-stripped name as the Mermaid node id (it's alphanumeric + underscore — safe).
+
+**Self-loops and repeated nodes.** A sequence like `Bash → Bash` or `Read → Read → Read` would, if rendered with a single shared node id `Bash`, become a self-loop in Mermaid instead of a chain. Disambiguate by suffixing each repeated occurrence after the first: the second `Bash` becomes node id `Bash_2`, the third `Bash_3`, and so on. Give each suffixed node the same display label (using `Bash_2[Bash]`, `Bash_3[Bash]` syntax) so the diagram still reads as a chain of identical-looking nodes. Counters reset per sequence entry — `Bash → Bash → Bash` in one entry and `Bash → Bash` in another both start counting from 2.
 
 Mermaid `linkStyle` indices count edges, not sequence entries. A 2-step entry `A → B` contributes 1 edge; a 3-step entry `A → B → C` contributes 2 edges. To compute the index for the top-by-count entry, sum the edge counts of all preceding entries in emission order. When an entry has multiple edges, apply `linkStyle` to all of them. Comparison "top 2 by count" is done at the entry level (one entry = one rank), not at the edge level.
 
@@ -338,7 +340,7 @@ Render as a table. `decodedPath` is human-readable; show it instead of the encod
 
 For `{{vault raw}}` / `{{projects raw}}` / `{{total raw}}`, emit the per-bucket fields the MD's "Raw aggregates" section emits: top tools, top 2-grams, top 3-grams, largest result tools, stale-path hits, current-note anchors, cache-hit distribution, subagent budget, dead-end count. Plain text, one field per labelled paragraph. `warnings` is a top-level `AnalyticsReport` field — emit it once at the bottom of the outer `<details>` block, after the three nested bucket details, not inside each bucket.
 
-If a field is empty for a bucket (e.g. `currentNoteAnchors` is always empty for `projects`), write "none" rather than emitting an empty list.
+If a field is empty for a bucket — `null`, `[]`, or otherwise absent (e.g. `currentNoteAnchors` is always empty for `projects`; `stalePathErrors` may serialise as `null`) — write "none" rather than emitting an empty list or the literal `null`.
 
 ## Empty-period handling
 
@@ -354,7 +356,7 @@ If `buckets.total.sessionsTotal === 0`:
 
 - One self-contained HTML document, no external JS beyond the two CDN scripts in `<head>`.
 - No external CSS beyond Tailwind CDN.
-- All user-visible tool names have the `mcp__neuro-vault__` prefix stripped. Raw aggregates may keep the full name (it's debug data).
+- Strip the `mcp__neuro-vault__` prefix from user-visible tool names. Do NOT strip other `mcp__<server>__` prefixes (e.g. `mcp__ccd_session__mark_chapter` stays as-is — those are foreign tools called from external projects in the `projects` bucket and the prefix is the actual disambiguator). Raw aggregates may keep all prefixes — they are debug data.
 - Generous whitespace: section margins `mb-12`, card padding `p-6`, gap `gap-6` inside grids.
 - Do not emit HTML comments to the output. They're noise.
 - Do not emit any prose outside the template (no preamble, no trailing notes).
