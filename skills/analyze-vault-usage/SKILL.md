@@ -10,6 +10,7 @@ This skill orchestrates a single usage-review pass:
 1. Run the bundled CLI to compute aggregates.
 2. Critique the report using the prompt in `prompt.md`.
 3. Write the resulting note via the user's Obsidian skills.
+4. Write an HTML companion report to `/tmp`.
 
 ## Step 1 — Run the analyzer
 
