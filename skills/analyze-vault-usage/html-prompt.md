@@ -55,7 +55,7 @@ The `<!-- ... -->` comments inside the scaffold mark *where* each section goes �
 
     <!-- Where the context goes — see "Mass diagram" rule -->
     <!-- Vault vs Projects — see "Vault vs Projects" rule -->
-    <!-- Tools by bucket — see "Tools by bucket" rule -->
+    <!-- Neuro-vault tool usage — see "Neuro-vault tool usage" rule -->
     <!-- Unused tools — see "Unused tools" rule -->
     <!-- Cache & dead ends — see "Cache & dead ends" rule -->
     <!-- Patterns observed — see "Patterns observed" rule -->
@@ -384,7 +384,7 @@ If `buckets.total.sessionsTotal === 0`:
 
 - Render the header with all three badges showing `0`.
 - Render the TL;DR with: *Sessions touching the vault: 0. No patterns observed.*
-- **Omit entirely**: "Where the context goes", "Vault vs Projects", "Tools by bucket", "Unused tools", "Cache & dead ends", "Patterns observed", "Suggestions", "Per-project breakdown".
+- **Omit entirely**: "Where the context goes", "Vault vs Projects", "Neuro-vault tool usage", "Unused tools", "Cache & dead ends", "Patterns observed", "Suggestions", "Per-project breakdown".
 - **Render**: "Raw aggregates" (everything zero/empty, just for shape).
 
 ## Style rules
