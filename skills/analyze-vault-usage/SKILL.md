@@ -1,6 +1,6 @@
 ---
 name: analyze-vault-usage
-description: Use when the user asks for a usage review of their neuro-vault work over a period (e.g. "/analyze-vault-usage 7d", "review my last week of vault usage"). Runs the bundled nv-analytics CLI to compute deterministic aggregates over Claudian conversation records, then critiques patterns and writes an actionable note to Inbox/neuro-vault-usage/YYYY-Www.md in the vault.
+description: Use when the user asks for a usage review of their neuro-vault work over a period (e.g. "/analyze-vault-usage 7d", "review my last week of vault usage"). Runs the bundled nv-analytics CLI to compute deterministic aggregates over Claudian conversation records, critiques patterns, writes an actionable note to Inbox/neuro-vault-usage/YYYY-Www.md in the vault, and a visual HTML companion to /tmp.
 ---
 
 # /analyze-vault-usage [period]
@@ -10,6 +10,7 @@ This skill orchestrates a single usage-review pass:
 1. Run the bundled CLI to compute aggregates.
 2. Critique the report using the prompt in `prompt.md`.
 3. Write the resulting note via the user's Obsidian skills.
+4. Write an HTML companion report to `/tmp`.
 
 ## Step 1 — Run the analyzer
 
@@ -104,6 +105,36 @@ archived: false
 ```
 
 `ephemeral` is intentionally **not** in `tags` — these notes are kept for cross-period diff. The explicit `archived: false` field is reserved for future lifecycle tooling.
+
+## Step 4 — Write the HTML companion report
+
+After the MD note is in the vault, re-render the same analysis as a single-file HTML report in `/tmp`. The HTML is ephemeral and lives outside the vault by design.
+
+Use the prompt template in `${CLAUDE_PLUGIN_ROOT}/skills/analyze-vault-usage/html-prompt.md`. Substitute the same JSON output from Step 1 into the `<<REPORT_JSON>>` placeholder. The HTML prompt assumes the MD body from Step 3 is in your working memory — reuse the TL;DR, patterns, and suggestions prose verbatim where the HTML template asks for them.
+
+Compute the cache-busting suffix once via the Bash tool:
+
+```sh
+node -e 'process.stdout.write(Date.now().toString(36).slice(-4))'
+```
+
+Capture stdout as `<suffix>` (4 base36 chars). Then write the rendered HTML via the `Write` tool to:
+
+```
+/tmp/nv-analytics-<label>-<suffix>.html
+```
+
+where `<label>` is the same label used for the MD filename in Step 3 (`2026-W17` or `2026-04-25_to_2026-04-26`).
+
+After the write succeeds, print exactly one line to chat:
+
+```
+HTML report: /tmp/nv-analytics-<label>-<suffix>.html
+```
+
+If the write fails, surface the error to the user verbatim. The MD note has already been written — the failure is non-fatal for the overall skill.
+
+If `buckets.total.sessionsTotal === 0`, still write the HTML. The `html-prompt.md` empty-period rules cover the layout.
 
 ## Empty period
 
