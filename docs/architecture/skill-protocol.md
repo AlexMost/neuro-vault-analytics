@@ -22,7 +22,7 @@ The skill turns a deterministic JSON report from the `nv-analytics` CLI into two
 1. **Run the CLI.** `node ${CLAUDE_PLUGIN_ROOT}/dist/cli.js --period <P> --format json`. Produces an `AnalyticsReport` (see `src/types.ts`).
 2. **Critique with `prompt.md`.** Agent walks the JSON, applies the confidence-tier rules and guards, produces a Markdown body.
 3. **Write MD via Obsidian.** Path is `Inbox/neuro-vault-usage/<label>.md`. Overwrites on rerun. This artefact is the source of truth — Dataview indexes it, future reports diff against it.
-4. **Re-render with `html-prompt.md`.** Agent emits a single-file HTML using a fixed scaffold (Tailwind + Mermaid via CDN). Writes to `/tmp/nv-analytics-<label>-<suffix>.html` where `<suffix>` is 4 base36 chars of `Date.now()`. Prints the path on a single line.
+4. **Re-render with `html-prompt.md`.** Agent emits a single-file HTML using a fixed scaffold (Tailwind via CDN). Writes to `/tmp/nv-analytics-<label>-<suffix>.html` where `<suffix>` is 4 base36 chars of `Date.now()`. Prints the path on a single line.
 
 ## Contract between the two prompts
 
@@ -36,7 +36,7 @@ Concretely:
 | Patterns observed body | reused from MD Step 3 |
 | Suggestions copy and confidence tags | reused from MD Step 3 |
 | Numbers, top tools, sequences, cache stats | re-read from JSON |
-| Diagrams (mass, flowchart, cards) | computed from JSON per `html-prompt.md` formulas |
+| Diagrams and tables (mass diagram, vault-vs-projects cards, tools-by-bucket, per-project) | computed from JSON per `html-prompt.md` formulas |
 
 The reason: keeping the critique judgment in one place (MD) and using HTML only for re-presentation. Iterating on what counts as a `[HIGH]` suggestion touches `prompt.md` alone; iterating on how it renders touches `html-prompt.md` alone.
 

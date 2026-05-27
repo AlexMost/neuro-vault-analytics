@@ -20,11 +20,11 @@ indexed by Dataview, lives in git-versioned vault state, and supports
 cross-period diff. This spec adds a second, ephemeral output: a single-file
 HTML report in `/tmp` that mirrors the MD content but uses diagrams for the
 parts that read poorly as Markdown tables — mass diagram for context cost,
-flowchart for sequences, side-by-side cards for the vault/projects contrast.
+a tools-by-bucket table with vault-row emphasis, side-by-side cards for the vault/projects contrast.
 
 The trigger is the same `improve-codebase-architecture` HTML-report convention
 [`HTML-REPORT.md`](https://github.com/mattpocock/skills/blob/main/skills/engineering/improve-codebase-architecture/HTML-REPORT.md):
-single-file HTML, Tailwind + Mermaid via CDN, custom CSS only where Tailwind
+single-file HTML, Tailwind via CDN, custom CSS only where Tailwind
 falls short, diagrams as the primary medium.
 
 ## Motivation
@@ -65,7 +65,7 @@ No CLI changes; the CLI already emits every field the template needs.
 
 ## Out of scope
 
-- Interactivity beyond native Mermaid rendering (this is not a SPA).
+- Interactivity of any kind beyond standard HTML (`<details>`/`<summary>`) — this is not a SPA.
 - Export to PDF, PNG, other formats.
 - Cross-period diff/trend HTML — separate ticket.
 - Persistence; the file is ephemeral by intent and `/tmp` is fine.
@@ -278,10 +278,6 @@ Parallel structure to `prompt.md`:
   the visual companion is useful even if the MD path was misconfigured.
 - **HTML write fails** — surface the error verbatim and stop. MD already
   landed; user can fix `/tmp` perms or rerun.
-- **Mermaid render fails in browser** — out of scope of this skill. The
-  agent emits valid Mermaid syntax following the template; if a future
-  Mermaid version breaks, that surfaces as a console error in the user's
-  browser, not a generation-time failure.
 
 ## Testing
 
@@ -304,8 +300,8 @@ with no library code:
 - [ ] Confidence badges are colour-coded: HIGH=emerald, MED=amber,
       LOW=slate, BLOCKED=red, REQUIRES_VERIFICATION=sky.
 - [ ] Empty-period case: pick a window with zero activity (or fabricate via
-      a far-future date); HTML still generates, no Mermaid errors in
-      console, TL;DR shows the zero-sessions string.
+      a far-future date); HTML still generates, TL;DR shows the
+      zero-sessions string.
 - [ ] One end-to-end run on the current week (`/analyze-vault-usage 7d`)
       produces an HTML the human reviewer agrees is useful.
 

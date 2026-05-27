@@ -155,6 +155,21 @@ Build a union table over `buckets.vault.topTools` and `buckets.projects.topTools
 
 Sort rows by `total` descending. Strip the `mcp__neuro-vault__` prefix from displayed names (it's what the report is about — the namespace is implicit and the prefix is noise). Leave foreign `mcp__<server>__` prefixes intact.
 
+Resolve each row's optional class slots at generation time — do not emit the `{{ ... }}` placeholders literally:
+
+- `{{rowTintClass}}`:
+  - `vaultCount === 0 && projectsCount > 0` → ` bg-amber-50` (note the leading space so it concatenates onto the existing class list)
+  - `projectsCount === 0 && vaultCount > 0` → ` bg-slate-50`
+  - both `> 0` → empty string
+- `{{toolNameWeight}}`:
+  - `isVaultTool === true` → ` font-semibold text-slate-900`
+  - else → empty string
+- `{{vaultBadge}}`:
+  - `isVaultTool === true` → ` <span class="ml-2 inline-block text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">vault</span>`
+  - else → empty string
+
+These three classifications are independent. A vault tool used only in vault gets both the slate tint AND the bold + emerald badge.
+
 ```html
 <section class="mb-12">
   <h2 class="text-2xl mb-4">Tools by bucket</h2>
@@ -179,30 +194,13 @@ Sort rows by `total` descending. Strip the `mcp__neuro-vault__` prefix from disp
       <!-- one row per unique tool in the union, sorted by total desc -->
     </tbody>
   </table>
-```
-
-Resolve the row's optional classes at generation time — do not emit the `{{ ... }}` placeholders literally:
-
-- `{{rowTintClass}}`:
-  - `vaultCount === 0 && projectsCount > 0` → ` bg-amber-50` (note the leading space so it concatenates onto the existing class list)
-  - `projectsCount === 0 && vaultCount > 0` → ` bg-slate-50`
-  - both `> 0` → empty string
-- `{{toolNameWeight}}`:
-  - `isVaultTool === true` → ` font-semibold text-slate-900`
-  - else → empty string
-- `{{vaultBadge}}`:
-  - `isVaultTool === true` → ` <span class="ml-2 inline-block text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">vault</span>`
-  - else → empty string
-
-These three classifications are independent. A vault tool used only in vault gets both the slate tint AND the bold + emerald badge.
-
   <p class="text-sm text-slate-600 mt-3">All tool calls across vault + projects, sorted by total. <span class="inline-block text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">vault</span> badges mark <code class="text-xs bg-slate-100 px-1 rounded">mcp__neuro-vault__*</code> tools — these are the report's lens. Amber rows are projects-only tools (the canonical "external workflow" signal); slate rows are vault-only. Counts come from per-bucket top-N tables emitted by the CLI; a low-rank tool in one bucket may appear as <code class="text-xs">0</code> even with a handful of calls.</p>
 </section>
 ```
 
 ### Unused tools
 
-**Skip this section** if `buckets.total.sessionsTotal === 0` OR if the JSON's top-level `unusedTools` array is empty.
+**Skip this section entirely** only if `buckets.total.sessionsTotal === 0`. When sessions > 0 but the JSON's top-level `unusedTools` array is empty, still render the section — see the empty-array note below the scaffold.
 
 The top-level `unusedTools` field lists catalog tools that received zero calls across vault and projects for the period. Render as a compact list. Strip the `mcp__neuro-vault__` prefix; leave foreign prefixes intact.
 

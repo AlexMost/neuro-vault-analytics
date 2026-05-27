@@ -4,7 +4,7 @@ Claude Code plugin and standalone CLI that turns Claudian conversation records i
 
 ## What it does
 
-Use `/analyze-vault-usage 7d` from inside a Claude Code session, or run `nv-analytics --period 7d` directly. The CLI computes deterministic aggregates (top tools, N+1 patterns, dead ends, cache-hit ratios, subagent budgets) over your Claudian conversation records; the skill hands the aggregates to Claude for pattern critique, writes an actionable note to `Inbox/neuro-vault-usage/YYYY-Www.md` in the vault (canonical, indexed by Dataview), and a single-file HTML companion to `/tmp/nv-analytics-<label>-<suffix>.html` (ephemeral, with mass diagrams and a Mermaid flowchart that read better than the equivalent Markdown tables).
+Use `/analyze-vault-usage 7d` from inside a Claude Code session, or run `nv-analytics --period 7d` directly. The CLI computes deterministic aggregates (top tools, N+1 patterns, dead ends, cache-hit ratios, subagent budgets) over your Claudian conversation records; the skill hands the aggregates to Claude for pattern critique, writes an actionable note to `Inbox/neuro-vault-usage/YYYY-Www.md` in the vault (canonical, indexed by Dataview), and a single-file HTML companion to `/tmp/nv-analytics-<label>-<suffix>.html` (ephemeral, with mass diagrams, side-by-side vault-vs-projects cards, and a tools-by-bucket table that read better than the equivalent Markdown tables).
 
 By default the CLI scans **every** project under `~/.claude/projects/` for the period and slices the report into three parallel buckets:
 
@@ -49,7 +49,7 @@ nv-analytics --period 7d --vault ~/Obsidian --format json
 The skill produces two artefacts per run:
 
 - **`Inbox/neuro-vault-usage/<label>.md`** — the canonical review note, kept in the vault for diff and Dataview queries. Overwritten on rerun of the same period.
-- **`/tmp/nv-analytics-<label>-<suffix>.html`** — a self-contained HTML report (Tailwind + Mermaid via CDN). The suffix is a 4-char base36 of `Date.now()`, so every run is a fresh file; macOS will reap `/tmp` for you. Open it in any browser; no server, no offline state.
+- **`/tmp/nv-analytics-<label>-<suffix>.html`** — a self-contained HTML report (Tailwind via CDN). The suffix is a 4-char base36 of `Date.now()`, so every run is a fresh file; macOS will reap `/tmp` for you. Open it in any browser; no server, no offline state.
 
 The dual output is always produced — there is no `--html` flag. See [`docs/architecture/skill-protocol.md`](./docs/architecture/skill-protocol.md) for the contract between the two prompts.
 
